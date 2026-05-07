@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Banking API — Developer Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #2d3748; }
+  header { background: #1a365d; color: white; padding: 32px 48px; }
+  header h1 { font-size: 28px; font-weight: 700; }
+  header p { margin-top: 8px; color: #90cdf4; font-size: 15px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+  .section { background: white; border-radius: 12px; padding: 32px; margin-bottom: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section h2 { font-size: 20px; color: #1a365d; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #ebf4ff; }
+  .endpoint { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #f7fafc; }
+  .endpoint-body { padding: 20px 18px; border-top: 1px solid #e2e8f0; }
+  .method { font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 5px; min-width: 58px; text-align: center; }
+  .GET  { background: #c6f6d5; color: #22543d; }
+  .POST { background: #bee3f8; color: #2a4365; }
+  .PUT  { background: #fefcbf; color: #744210; }
+  .path { font-family: monospace; font-size: 15px; font-weight: 600; color: #2d3748; }
+  .edesc { font-size: 13px; color: #718096; margin-left: auto; }
+  .auth-badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: 600; white-space: nowrap; }
+  .auth-required { background: #fed7d7; color: #822727; }
+  .auth-open { background: #c6f6d5; color: #22543d; }
+  .subsection { margin-bottom: 18px; }
+  .subsection h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #718096; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+  th { background: #ebf4ff; padding: 8px 12px; text-align: left; font-weight: 600; color: #2b6cb0; border: 1px solid #e2e8f0; }
+  td { padding: 8px 12px; border: 1px solid #e2e8f0; vertical-align: top; }
+  td:first-child { font-family: monospace; font-weight: 600; color: #2d3748; white-space: nowrap; }
+  .required { color: #e53e3e; font-size: 11px; font-weight: 600; }
+  .optional { color: #718096; font-size: 11px; }
+  code { background: #edf2f7; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+  pre { background: #1a202c; color: #e2e8f0; padding: 16px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin-top: 4px; line-height: 1.6; }
+  .tag { display: inline-block; background: #ebf4ff; color: #2b6cb0; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-right: 4px; }
+  .warn { background: #fffbeb; border-left: 4px solid #f6ad55; padding: 14px 18px; border-radius: 0 8px 8px 0; font-size: 14px; color: #744210; margin-top: 12px; }
+  .info { background: #ebf8ff; border-left: 4px solid #4299e1; padding: 14px 18px; border-radius: 0 8px 8px 0; font-size: 13px; color: #2b6cb0; margin-bottom: 16px; }
+  .db-badge { display: inline-block; background: #faf5ff; color: #6b46c1; border: 1px solid #d6bcfa; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin: 2px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .grid2 { grid-template-columns: 1fr; } header { padding: 24px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Banking System API — Developer Reference</h1>
+  <p>Internal documentation for development and QA teams &nbsp;·&nbsp; v1.0 &nbsp;·&nbsp; Base URL: <code style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:4px;">http://10.100.102.13:8080</code></p>
+</header>
+<div class="container">
+
+<!-- AUTH FLOW -->
+<div class="section">
+  <h2>Authentication Flow</h2>
+  <div class="info">All <code>/api/*</code> endpoints require a JWT token in the <code>Authorization</code> header. Tokens are issued by <code>POST /token</code> and expire after <strong>1 hour</strong>. The open endpoints <code>/token</code>, <code>/health</code>, <code>/review</code>, and <code>/docs</code> require no token.</div>
+  <div class="grid2">
+    <div class="subsection">
+      <h4>Step 1 — Request a token</h4>
+      <pre>POST /token
+Content-Type: application/json
+
+{
+  "key":    "bk_live_xxxxxxxxxxxxxxxx",
+  "secret": "bk_secret_xxxxxxxxxxxxxxxx"
+}</pre>
+    </div>
+    <div class="subsection">
+      <h4>Step 2 — Use token in every request</h4>
+      <pre>GET /api/clients/
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Response: 200 OK
+{...}</pre>
+    </div>
+  </div>
+  <div class="subsection" style="margin-top:16px;">
+    <h4>Token response fields</h4>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td>access_token</td><td>string</td><td>Signed JWT — place this in the Authorization header</td></tr>
+      <tr><td>token_type</td><td>string</td><td>Always <code>Bearer</code></td></tr>
+      <tr><td>expires_in</td><td>integer</td><td>Seconds until expiry (3600 = 1 hour)</td></tr>
+      <tr><td>role</td><td>string</td><td><code>admin</code> or <code>readonly</code></td></tr>
+    </table>
+  </div>
+  <div class="warn">⚠ Secrets are hashed in the database and shown only once at generation time. Store <code>credentials.txt</code> securely.</div>
+</div>
+
+<!-- ROLES -->
+<div class="section">
+  <h2>Roles &amp; Policies (enforced by Tyk Gateway)</h2>
+  <table>
+    <tr><th>Role</th><th>Allowed HTTP Methods</th><th>Rate Limit</th><th>Hourly Quota</th><th>Use case</th></tr>
+    <tr><td>admin</td><td>GET, POST, PUT, DELETE</td><td>1000 requests / min</td><td>Unlimited</td><td>Backend services, internal tools</td></tr>
+    <tr><td>readonly</td><td>GET only</td><td>10 requests / min</td><td>100 requests / hour</td><td>Dashboards, reporting, QA testing</td></tr>
+  </table>
+  <div class="info" style="margin-top:16px;">Tyk enforces policies <strong>before</strong> the request reaches Flask. A <code>readonly</code> token attempting a POST will receive <code>403 Forbidden</code> from the gateway — Flask never sees it.</div>
+</div>
+
+<!-- OPEN ENDPOINTS -->
+<div class="section">
+  <h2>Open Endpoints <span style="font-size:13px;font-weight:400;color:#718096;">(no token required)</span></h2>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/token</span><span class="auth-badge auth-open">public</span><span class="edesc">Exchange API key + secret for a JWT token</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4><table><tr><th>Header</th><th>Required</th><th>Value</th></tr><tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table></div>
+      <div class="subsection"><h4>Request Body</h4><table><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr><tr><td>key</td><td>string</td><td><span class="required">required</span></td><td>API key from ApiCredentials table e.g. bk_live_...</td></tr><tr><td>secret</td><td>string</td><td><span class="required">required</span></td><td>API secret e.g. bk_secret_...</td></tr></table></div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">ApiCredentials</span><p style="font-size:13px;color:#4a5568;margin-top:8px;">Reads <code>ApiKey</code>, <code>ApiSecretHash</code>, <code>Role</code>, <code>Name</code>, <code>IsActive</code>. Updates <code>LastUsedAt</code> on success.</p></div>
+    </div>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/health</span><span class="auth-badge auth-open">public</span><span class="edesc">API and database connectivity check</span></div>
+    <div class="endpoint-body"><div class="subsection"><h4>Response</h4><pre>{ "status": "ok", "database": "connected" }</pre></div></div>
+  </div>
+</div>
+
+<!-- BRANCHES -->
+<div class="section">
+  <h2>Branches <span class="tag">GET</span></h2>
+  <div class="info">Read-only reference data. Used when creating clients and accounts to assign a branch.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/branches/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all branches</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Branches</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Type</th><th>Description</th></tr>
+        <tr><td>BranchID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>BranchName</td><td>string</td><td>Display name of the branch</td></tr>
+        <tr><td>Address</td><td>string</td><td>Street address</td></tr>
+        <tr><td>City</td><td>string</td><td>City</td></tr>
+        <tr><td>Country</td><td>string</td><td>Country</td></tr>
+        <tr><td>Phone</td><td>string</td><td>Branch phone number</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Response</h4>
+        <pre>[{ "BranchID": 1, "BranchName": "Tel Aviv Main", "Address": "1 Rothschild Blvd", "City": "Tel Aviv", "Country": "Israel", "Phone": "+972-3-1000001" }]</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/branches/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single branch by ID</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Branch ID from Branches table</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Branches</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns same columns as list. Returns <code>404</code> if branch not found.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENTS -->
+<div class="section">
+  <h2>Clients <span class="tag">GET</span><span class="tag">POST</span></h2>
+  <div class="info">Core entity. Every account, loan, and credit card belongs to a client. Creating a client requires an <code>admin</code> token.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all clients with branch name</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Clients</span><span class="db-badge">Branches</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ClientID</td><td>Clients</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>BranchID</td><td>Clients</td><td>int</td><td>FK to Branches</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Client first name</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Client last name</td></tr>
+        <tr><td>Email</td><td>Clients</td><td>string</td><td>Unique email address</td></tr>
+        <tr><td>Phone</td><td>Clients</td><td>string</td><td>Phone number</td></tr>
+        <tr><td>DateOfBirth</td><td>Clients</td><td>date</td><td>ISO format YYYY-MM-DD</td></tr>
+        <tr><td>NationalID</td><td>Clients</td><td>string</td><td>Unique national ID number</td></tr>
+        <tr><td>Address</td><td>Clients</td><td>string</td><td>Full address</td></tr>
+        <tr><td>CreatedAt</td><td>Clients</td><td>datetime</td><td>Record creation timestamp</td></tr>
+        <tr><td>BranchName</td><td>Branches</td><td>string</td><td>Joined from Branches table</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Client ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Clients</span><span class="db-badge">Branches</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Same columns as list. Returns <code>404</code> if not found.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}/summary</span><span class="auth-badge auth-required">token</span><span class="edesc">Full client profile — accounts, loans, cards, financial profile</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Client ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4>
+        <span class="db-badge">Clients</span><span class="db-badge">Accounts</span><span class="db-badge">Loans</span><span class="db-badge">CreditCards</span><span class="db-badge">ClientFinancialProfiles</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns a nested object with 5 keys: <code>client</code>, <code>accounts</code>, <code>loans</code>, <code>credit_cards</code>, <code>financial_profile</code>.</p>
+      </div>
+      <div class="subsection"><h4>Example Response</h4>
+        <pre>{
+  "client":            { "ClientID": 1, "FirstName": "Oren", ... },
+  "accounts":          [{ "AccountID": 1, "Balance": 12500.00, ... }],
+  "loans":             [{ "LoanID": 1, "PrincipalAmount": 50000.00, ... }],
+  "credit_cards":      [{ "CardID": 1, "CreditLimit": 20000.00, ... }],
+  "financial_profile": { "CreditScore": 720, "AnnualIncome": 240000.00, ... }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}/accounts</span><span class="auth-badge auth-required">token</span><span class="edesc">All accounts for a client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Accounts</span><span class="db-badge">AccountTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>AccountID</td><td>Accounts</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>AccountNumber</td><td>Accounts</td><td>string</td><td>Unique account number</td></tr>
+        <tr><td>Balance</td><td>Accounts</td><td>decimal</td><td>Current balance</td></tr>
+        <tr><td>Currency</td><td>Accounts</td><td>string</td><td>3-letter currency code e.g. ILS</td></tr>
+        <tr><td>Status</td><td>Accounts</td><td>string</td><td>Active / Inactive / Closed</td></tr>
+        <tr><td>OpenedAt</td><td>Accounts</td><td>datetime</td><td>Account opening timestamp</td></tr>
+        <tr><td>TypeName</td><td>AccountTypes</td><td>string</td><td>Checking / Savings / Business etc.</td></tr>
+        <tr><td>InterestRate</td><td>AccountTypes</td><td>decimal</td><td>Annual interest rate %</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/clients/</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Create a new client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>FirstName</td><td>string</td><td><span class="required">required</span></td><td>max 50 chars</td><td>Clients.FirstName</td></tr>
+        <tr><td>LastName</td><td>string</td><td><span class="required">required</span></td><td>max 50 chars</td><td>Clients.LastName</td></tr>
+        <tr><td>Email</td><td>string</td><td><span class="required">required</span></td><td>must be unique</td><td>Clients.Email</td></tr>
+        <tr><td>DateOfBirth</td><td>string</td><td><span class="required">required</span></td><td>YYYY-MM-DD format</td><td>Clients.DateOfBirth</td></tr>
+        <tr><td>NationalID</td><td>string</td><td><span class="required">required</span></td><td>must be unique</td><td>Clients.NationalID</td></tr>
+        <tr><td>BranchID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Branches</td><td>Clients.BranchID</td></tr>
+        <tr><td>Phone</td><td>string</td><td><span class="optional">optional</span></td><td>max 20 chars</td><td>Clients.Phone</td></tr>
+        <tr><td>Address</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>Clients.Address</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Request</h4>
+        <pre>{
+  "FirstName":   "Yonatan",
+  "LastName":    "Ben-David",
+  "Email":       "yonatan@example.com",
+  "Phone":       "+972-52-9999999",
+  "DateOfBirth": "1990-05-20",
+  "NationalID":  "987654321",
+  "Address":     "14 Herzl St, Tel Aviv",
+  "BranchID":    1
+}</pre>
+      </div>
+      <div class="subsection"><h4>Response — 201 Created</h4>
+        <p style="font-size:13px;color:#4a5568;">Returns the full created client row including auto-generated <code>ClientID</code> and <code>CreatedAt</code>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BRANCHES -->
+<div class="section">
+  <h2>Branches <span class="tag">GET</span></h2>
+  <div class="info">Read-only reference data. Used when creating clients and accounts to assign a branch.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/branches/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all branches</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Branches</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Type</th><th>Description</th></tr>
+        <tr><td>BranchID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>BranchName</td><td>string</td><td>Display name of the branch</td></tr>
+        <tr><td>Address</td><td>string</td><td>Street address</td></tr>
+        <tr><td>City</td><td>string</td><td>City</td></tr>
+        <tr><td>Country</td><td>string</td><td>Country</td></tr>
+        <tr><td>Phone</td><td>string</td><td>Branch phone number</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Response</h4>
+        <pre>[{ "BranchID": 1, "BranchName": "Tel Aviv Main", "Address": "1 Rothschild Blvd", "City": "Tel Aviv", "Country": "Israel", "Phone": "+972-3-1000001" }]</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/branches/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single branch by ID</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Branch ID from Branches table</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Branches</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns same columns as list. Returns <code>404</code> if branch not found.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENTS -->
+<div class="section">
+  <h2>Clients <span class="tag">GET</span><span class="tag">POST</span></h2>
+  <div class="info">Core entity. Every account, loan, and credit card belongs to a client. Creating a client requires an <code>admin</code> token.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all clients with branch name</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Clients</span><span class="db-badge">Branches</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ClientID</td><td>Clients</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>BranchID</td><td>Clients</td><td>int</td><td>FK to Branches</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Client first name</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Client last name</td></tr>
+        <tr><td>Email</td><td>Clients</td><td>string</td><td>Unique email address</td></tr>
+        <tr><td>Phone</td><td>Clients</td><td>string</td><td>Phone number</td></tr>
+        <tr><td>DateOfBirth</td><td>Clients</td><td>date</td><td>ISO format YYYY-MM-DD</td></tr>
+        <tr><td>NationalID</td><td>Clients</td><td>string</td><td>Unique national ID number</td></tr>
+        <tr><td>Address</td><td>Clients</td><td>string</td><td>Full address</td></tr>
+        <tr><td>CreatedAt</td><td>Clients</td><td>datetime</td><td>Record creation timestamp</td></tr>
+        <tr><td>BranchName</td><td>Branches</td><td>string</td><td>Joined from Branches table</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Client ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Clients</span><span class="db-badge">Branches</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Same columns as list. Returns <code>404</code> if not found.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}/summary</span><span class="auth-badge auth-required">token</span><span class="edesc">Full client profile — accounts, loans, cards, financial profile</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Client ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4>
+        <span class="db-badge">Clients</span><span class="db-badge">Accounts</span><span class="db-badge">Loans</span><span class="db-badge">CreditCards</span><span class="db-badge">ClientFinancialProfiles</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns a nested object with 5 keys: <code>client</code>, <code>accounts</code>, <code>loans</code>, <code>credit_cards</code>, <code>financial_profile</code>.</p>
+      </div>
+      <div class="subsection"><h4>Example Response</h4>
+        <pre>{
+  "client":            { "ClientID": 1, "FirstName": "Oren", ... },
+  "accounts":          [{ "AccountID": 1, "Balance": 12500.00, ... }],
+  "loans":             [{ "LoanID": 1, "PrincipalAmount": 50000.00, ... }],
+  "credit_cards":      [{ "CardID": 1, "CreditLimit": 20000.00, ... }],
+  "financial_profile": { "CreditScore": 720, "AnnualIncome": 240000.00, ... }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/clients/{id}/accounts</span><span class="auth-badge auth-required">token</span><span class="edesc">All accounts for a client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Accounts</span><span class="db-badge">AccountTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>AccountID</td><td>Accounts</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>AccountNumber</td><td>Accounts</td><td>string</td><td>Unique account number</td></tr>
+        <tr><td>Balance</td><td>Accounts</td><td>decimal</td><td>Current balance</td></tr>
+        <tr><td>Currency</td><td>Accounts</td><td>string</td><td>3-letter currency code e.g. ILS</td></tr>
+        <tr><td>Status</td><td>Accounts</td><td>string</td><td>Active / Inactive / Closed</td></tr>
+        <tr><td>OpenedAt</td><td>Accounts</td><td>datetime</td><td>Account opening timestamp</td></tr>
+        <tr><td>TypeName</td><td>AccountTypes</td><td>string</td><td>Checking / Savings / Business etc.</td></tr>
+        <tr><td>InterestRate</td><td>AccountTypes</td><td>decimal</td><td>Annual interest rate %</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/clients/</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Create a new client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>FirstName</td><td>string</td><td><span class="required">required</span></td><td>max 50 chars</td><td>Clients.FirstName</td></tr>
+        <tr><td>LastName</td><td>string</td><td><span class="required">required</span></td><td>max 50 chars</td><td>Clients.LastName</td></tr>
+        <tr><td>Email</td><td>string</td><td><span class="required">required</span></td><td>must be unique</td><td>Clients.Email</td></tr>
+        <tr><td>DateOfBirth</td><td>string</td><td><span class="required">required</span></td><td>YYYY-MM-DD format</td><td>Clients.DateOfBirth</td></tr>
+        <tr><td>NationalID</td><td>string</td><td><span class="required">required</span></td><td>must be unique</td><td>Clients.NationalID</td></tr>
+        <tr><td>BranchID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Branches</td><td>Clients.BranchID</td></tr>
+        <tr><td>Phone</td><td>string</td><td><span class="optional">optional</span></td><td>max 20 chars</td><td>Clients.Phone</td></tr>
+        <tr><td>Address</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>Clients.Address</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Request</h4>
+        <pre>{
+  "FirstName":   "Yonatan",
+  "LastName":    "Ben-David",
+  "Email":       "yonatan@example.com",
+  "Phone":       "+972-52-9999999",
+  "DateOfBirth": "1990-05-20",
+  "NationalID":  "987654321",
+  "Address":     "14 Herzl St, Tel Aviv",
+  "BranchID":    1
+}</pre>
+      </div>
+      <div class="subsection"><h4>Response — 201 Created</h4>
+        <p style="font-size:13px;color:#4a5568;">Returns the full created client row including auto-generated <code>ClientID</code> and <code>CreatedAt</code>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNTS -->
+<div class="section">
+  <h2>Accounts <span class="tag">GET</span><span class="tag">POST</span></h2>
+  <div class="info">Each client can have multiple accounts of different types. Account balances are updated in real time by the transactions endpoints.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/accounts/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all accounts</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Accounts</span><span class="db-badge">Clients</span><span class="db-badge">AccountTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>AccountID</td><td>Accounts</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>ClientID</td><td>Accounts</td><td>int</td><td>FK to Clients</td></tr>
+        <tr><td>AccountTypeID</td><td>Accounts</td><td>int</td><td>FK to AccountTypes</td></tr>
+        <tr><td>BranchID</td><td>Accounts</td><td>int</td><td>FK to Branches</td></tr>
+        <tr><td>AccountNumber</td><td>Accounts</td><td>string</td><td>Unique account number e.g. ACC-001-001</td></tr>
+        <tr><td>Balance</td><td>Accounts</td><td>decimal</td><td>Current balance — updated by transactions</td></tr>
+        <tr><td>Currency</td><td>Accounts</td><td>string</td><td>3-letter ISO code e.g. ILS, USD</td></tr>
+        <tr><td>Status</td><td>Accounts</td><td>string</td><td>Active / Inactive / Closed</td></tr>
+        <tr><td>OpenedAt</td><td>Accounts</td><td>datetime</td><td>Account creation timestamp</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Client first name (joined)</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Client last name (joined)</td></tr>
+        <tr><td>TypeName</td><td>AccountTypes</td><td>string</td><td>Checking / Savings / Business / Fixed Deposit / Student</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/accounts/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single account</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Account ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Accounts</span><span class="db-badge">Clients</span><span class="db-badge">AccountTypes</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Same columns as list. Returns <code>404</code> if not found.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/accounts/{id}/transactions</span><span class="auth-badge auth-required">token</span><span class="edesc">Transaction history for an account</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Account ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Transactions</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Type</th><th>Description</th></tr>
+        <tr><td>TransactionID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>AccountID</td><td>int</td><td>Account that initiated the transaction</td></tr>
+        <tr><td>RelatedAccountID</td><td>int</td><td>Counter-party account for transfers — nullable</td></tr>
+        <tr><td>TransactionType</td><td>string</td><td>Deposit / Withdrawal / Transfer</td></tr>
+        <tr><td>Amount</td><td>decimal</td><td>Transaction amount</td></tr>
+        <tr><td>Currency</td><td>string</td><td>3-letter ISO code</td></tr>
+        <tr><td>Description</td><td>string</td><td>Free-text description</td></tr>
+        <tr><td>Status</td><td>string</td><td>Completed / Failed / Pending</td></tr>
+        <tr><td>TransactionDate</td><td>datetime</td><td>Timestamp of transaction</td></tr>
+        </table>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns transactions where <code>AccountID = id</code> OR <code>RelatedAccountID = id</code> — so both sides of a transfer appear in each account's history. Ordered newest first.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/accounts/</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Open a new bank account</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>ClientID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Clients</td><td>Accounts.ClientID</td></tr>
+        <tr><td>AccountTypeID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in AccountTypes (1–5)</td><td>Accounts.AccountTypeID</td></tr>
+        <tr><td>BranchID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Branches</td><td>Accounts.BranchID</td></tr>
+        <tr><td>AccountNumber</td><td>string</td><td><span class="required">required</span></td><td>must be unique</td><td>Accounts.AccountNumber</td></tr>
+        <tr><td>Balance</td><td>decimal</td><td><span class="optional">optional</span></td><td>defaults to 0.00</td><td>Accounts.Balance</td></tr>
+        <tr><td>Currency</td><td>string</td><td><span class="optional">optional</span></td><td>defaults to ILS</td><td>Accounts.Currency</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Account Type IDs</h4>
+        <table><tr><th>AccountTypeID</th><th>TypeName</th><th>Interest Rate</th></tr>
+        <tr><td>1</td><td>Checking</td><td>0.00%</td></tr>
+        <tr><td>2</td><td>Savings</td><td>2.50%</td></tr>
+        <tr><td>3</td><td>Business</td><td>0.50%</td></tr>
+        <tr><td>4</td><td>Fixed Deposit</td><td>4.75%</td></tr>
+        <tr><td>5</td><td>Student</td><td>1.00%</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSACTIONS -->
+<div class="section">
+  <h2>Transactions <span class="tag">GET</span><span class="tag">POST</span></h2>
+  <div class="info">All financial movements. Deposits and withdrawals update the account balance immediately. Transfers create two transaction records — one debit and one credit — and update both account balances atomically.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/transactions/</span><span class="auth-badge auth-required">token</span><span class="edesc">100 most recent transactions across all accounts</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Transactions</span><span class="db-badge">Accounts</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>TransactionID</td><td>Transactions</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>AccountID</td><td>Transactions</td><td>int</td><td>FK to Accounts</td></tr>
+        <tr><td>RelatedAccountID</td><td>Transactions</td><td>int</td><td>Counter-party account — null for deposits/withdrawals</td></tr>
+        <tr><td>TransactionType</td><td>Transactions</td><td>string</td><td>Deposit / Withdrawal / Transfer</td></tr>
+        <tr><td>Amount</td><td>Transactions</td><td>decimal</td><td>Transaction amount</td></tr>
+        <tr><td>Currency</td><td>Transactions</td><td>string</td><td>3-letter ISO code</td></tr>
+        <tr><td>Description</td><td>Transactions</td><td>string</td><td>Free-text description</td></tr>
+        <tr><td>Status</td><td>Transactions</td><td>string</td><td>Completed / Failed / Pending</td></tr>
+        <tr><td>TransactionDate</td><td>Transactions</td><td>datetime</td><td>Timestamp — ordered newest first</td></tr>
+        <tr><td>AccountNumber</td><td>Accounts</td><td>string</td><td>Account number (joined)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/transactions/deposit-withdrawal</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Deposit or withdraw from an account</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>AccountID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Accounts</td><td>Transactions.AccountID</td></tr>
+        <tr><td>Amount</td><td>decimal</td><td><span class="required">required</span></td><td>must be greater than 0</td><td>Transactions.Amount</td></tr>
+        <tr><td>Type</td><td>string</td><td><span class="required">required</span></td><td>must be exactly Deposit or Withdrawal</td><td>Transactions.TransactionType</td></tr>
+        <tr><td>Description</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>Transactions.Description</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Business Logic</h4>
+        <table><tr><th>Scenario</th><th>Result</th></tr>
+        <tr><td>Deposit</td><td>Accounts.Balance += Amount — always succeeds</td></tr>
+        <tr><td>Withdrawal with sufficient funds</td><td>Accounts.Balance -= Amount</td></tr>
+        <tr><td>Withdrawal with insufficient funds</td><td>400 Bad Request — "Insufficient funds"</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Request</h4>
+        <pre>{ "AccountID": 1, "Amount": 1000.00, "Type": "Deposit", "Description": "Salary" }</pre>
+      </div>
+      <div class="subsection"><h4>Response — 201 Created</h4>
+        <pre>{ "message": "Deposit successful", "transaction_id": 8, "new_balance": 13500.00 }</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/transactions/transfer</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Transfer funds between two accounts</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>FromAccountID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Accounts</td><td>Transactions.AccountID (debit record)</td></tr>
+        <tr><td>ToAccountID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Accounts</td><td>Transactions.AccountID (credit record)</td></tr>
+        <tr><td>Amount</td><td>decimal</td><td><span class="required">required</span></td><td>must be greater than 0, source must have sufficient balance</td><td>Transactions.Amount</td></tr>
+        <tr><td>Description</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>Transactions.Description</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>What happens in the database</h4>
+        <table><tr><th>Action</th><th>Table affected</th><th>Detail</th></tr>
+        <tr><td>Deduct from source</td><td>Accounts</td><td>Balance -= Amount on FromAccountID</td></tr>
+        <tr><td>Add to destination</td><td>Accounts</td><td>Balance += Amount on ToAccountID</td></tr>
+        <tr><td>Create debit record</td><td>Transactions</td><td>Type=Transfer, AccountID=From, RelatedAccountID=To</td></tr>
+        <tr><td>Create credit record</td><td>Transactions</td><td>Type=Transfer, AccountID=To, RelatedAccountID=From</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Request</h4>
+        <pre>{ "FromAccountID": 1, "ToAccountID": 3, "Amount": 500.00, "Description": "Rent payment" }</pre>
+      </div>
+      <div class="subsection"><h4>Response — 201 Created</h4>
+        <pre>{ "message": "Transfer successful", "transaction_id": 9, "amount": 500.0, "from_account": 1, "to_account": 3 }</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOANS -->
+<div class="section">
+  <h2>Loans <span class="tag">GET</span></h2>
+  <div class="info">View active and historical loans. Each loan is linked to a client, an account, a loan type, and optionally the employee who processed it. Payment history is available per loan.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/loans/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all loans</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Loans</span><span class="db-badge">Clients</span><span class="db-badge">LoanTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>LoanID</td><td>Loans</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>ClientID</td><td>Loans</td><td>int</td><td>FK to Clients</td></tr>
+        <tr><td>AccountID</td><td>Loans</td><td>int</td><td>FK to Accounts — account linked to the loan</td></tr>
+        <tr><td>LoanTypeID</td><td>Loans</td><td>int</td><td>FK to LoanTypes</td></tr>
+        <tr><td>EmployeeID</td><td>Loans</td><td>int</td><td>FK to Employees — loan officer, nullable</td></tr>
+        <tr><td>PrincipalAmount</td><td>Loans</td><td>decimal</td><td>Original loan amount</td></tr>
+        <tr><td>InterestRate</td><td>Loans</td><td>decimal</td><td>Annual interest rate %</td></tr>
+        <tr><td>TermMonths</td><td>Loans</td><td>int</td><td>Loan duration in months</td></tr>
+        <tr><td>MonthlyPayment</td><td>Loans</td><td>decimal</td><td>Fixed monthly repayment amount</td></tr>
+        <tr><td>AmountPaid</td><td>Loans</td><td>decimal</td><td>Total amount paid to date</td></tr>
+        <tr><td>RemainingBalance</td><td>Loans</td><td>decimal</td><td>Outstanding balance</td></tr>
+        <tr><td>StartDate</td><td>Loans</td><td>date</td><td>Loan start date</td></tr>
+        <tr><td>EndDate</td><td>Loans</td><td>date</td><td>Loan maturity date</td></tr>
+        <tr><td>Status</td><td>Loans</td><td>string</td><td>Active / Completed / Defaulted</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Client first name (joined)</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Client last name (joined)</td></tr>
+        <tr><td>LoanTypeName</td><td>LoanTypes</td><td>string</td><td>Personal Loan / Mortgage / Business Loan / Auto Loan / Student Loan</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/loans/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a single loan with full payment history</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Loan ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">Loans</span><span class="db-badge">Clients</span><span class="db-badge">LoanTypes</span><span class="db-badge">LoanPayments</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns a nested object with two keys: <code>loan</code> (same columns as list) and <code>payments</code> (from LoanPayments table).</p>
+      </div>
+      <div class="subsection"><h4>LoanPayments columns returned</h4>
+        <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        <tr><td>PaymentID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>LoanID</td><td>int</td><td>FK to Loans</td></tr>
+        <tr><td>PaymentDate</td><td>date</td><td>Date payment was made</td></tr>
+        <tr><td>Amount</td><td>decimal</td><td>Total payment amount</td></tr>
+        <tr><td>Principal</td><td>decimal</td><td>Portion applied to principal</td></tr>
+        <tr><td>Interest</td><td>decimal</td><td>Portion applied to interest</td></tr>
+        <tr><td>Status</td><td>string</td><td>Paid / Failed / Pending</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Response</h4>
+        <pre>{
+  "loan": {
+    "LoanID": 1, "PrincipalAmount": 50000.00, "InterestRate": 6.50,
+    "TermMonths": 36, "MonthlyPayment": 1525.00, "RemainingBalance": 40850.00,
+    "Status": "Active", "LoanTypeName": "Personal Loan", ...
+  },
+  "payments": [
+    { "PaymentID": 1, "PaymentDate": "2024-02-01", "Amount": 1525.00, "Principal": 1253.00, "Interest": 272.00, "Status": "Paid" },
+    { "PaymentID": 2, "PaymentDate": "2024-03-01", "Amount": 1525.00, "Principal": 1260.00, "Interest": 265.00, "Status": "Paid" }
+  ]
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/loans/types</span><span class="auth-badge auth-required">token</span><span class="edesc">List all available loan types</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Database</h4><span class="db-badge">LoanTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Type</th><th>Description</th></tr>
+        <tr><td>LoanTypeID</td><td>int</td><td>Primary key — use this in loan applications</td></tr>
+        <tr><td>TypeName</td><td>string</td><td>Personal Loan / Mortgage / Business Loan / Auto Loan / Student Loan</td></tr>
+        <tr><td>Description</td><td>string</td><td>Human-readable description</td></tr>
+        <tr><td>MinAmount</td><td>decimal</td><td>Minimum loan amount</td></tr>
+        <tr><td>MaxAmount</td><td>decimal</td><td>Maximum loan amount</td></tr>
+        <tr><td>MinTermMonths</td><td>int</td><td>Minimum term in months</td></tr>
+        <tr><td>MaxTermMonths</td><td>int</td><td>Maximum term in months</td></tr>
+        <tr><td>BaseRate</td><td>decimal</td><td>Base annual interest rate %</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOAN APPLICATIONS -->
+<div class="section">
+  <h2>Loan Applications &amp; Eligibility <span class="tag">GET</span><span class="tag">POST</span><span class="tag">PUT</span></h2>
+  <div class="info">The eligibility check engine evaluates a client's <code>ClientFinancialProfiles</code> record against the rules in <code>LoanEligibilityRules</code>. It checks credit score, annual income, and debt-to-income ratio. No data is written during a check — it is a pure read-only evaluation.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/loan-applications/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all loan applications</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Database</h4><span class="db-badge">LoanApplications</span><span class="db-badge">Clients</span><span class="db-badge">LoanTypes</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ApplicationID</td><td>LoanApplications</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>ClientID</td><td>LoanApplications</td><td>int</td><td>FK to Clients</td></tr>
+        <tr><td>LoanTypeID</td><td>LoanApplications</td><td>int</td><td>FK to LoanTypes</td></tr>
+        <tr><td>EmployeeID</td><td>LoanApplications</td><td>int</td><td>FK to Employees — nullable</td></tr>
+        <tr><td>RequestedAmount</td><td>LoanApplications</td><td>decimal</td><td>Amount the client is requesting</td></tr>
+        <tr><td>RequestedTerm</td><td>LoanApplications</td><td>int</td><td>Requested term in months</td></tr>
+        <tr><td>Purpose</td><td>LoanApplications</td><td>string</td><td>Reason for the loan</td></tr>
+        <tr><td>Status</td><td>LoanApplications</td><td>string</td><td>Pending / Approved / Rejected</td></tr>
+        <tr><td>DecisionReason</td><td>LoanApplications</td><td>string</td><td>Explanation of the decision — nullable</td></tr>
+        <tr><td>AppliedAt</td><td>LoanApplications</td><td>datetime</td><td>Submission timestamp</td></tr>
+        <tr><td>DecidedAt</td><td>LoanApplications</td><td>datetime</td><td>Decision timestamp — nullable</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Client first name (joined)</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Client last name (joined)</td></tr>
+        <tr><td>LoanTypeName</td><td>LoanTypes</td><td>string</td><td>Loan type name (joined)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/loan-applications/</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Submit a new loan application</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt; — admin role only</td></tr>
+        <tr><td>Content-Type</td><td><span class="required">required</span></td><td>application/json</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>ClientID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in Clients</td><td>LoanApplications.ClientID</td></tr>
+        <tr><td>LoanTypeID</td><td>integer</td><td><span class="required">required</span></td><td>must exist in LoanTypes (1–5)</td><td>LoanApplications.LoanTypeID</td></tr>
+        <tr><td>RequestedAmount</td><td>decimal</td><td><span class="required">required</span></td><td>must be greater than 0</td><td>LoanApplications.RequestedAmount</td></tr>
+        <tr><td>RequestedTerm</td><td>integer</td><td><span class="required">required</span></td><td>months — must be within loan type min/max</td><td>LoanApplications.RequestedTerm</td></tr>
+        <tr><td>EmployeeID</td><td>integer</td><td><span class="optional">optional</span></td><td>must exist in Employees</td><td>LoanApplications.EmployeeID</td></tr>
+        <tr><td>Purpose</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>LoanApplications.Purpose</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Response — 201 Created</h4>
+        <p style="font-size:13px;color:#4a5568;">Returns the full application row. Status is always <code>Pending</code> on creation.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method PUT">PUT</span><span class="path">/api/loan-applications/{id}/decision</span><span class="auth-badge auth-required">token · admin</span><span class="edesc">Approve or reject a pending application</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Application ID — must have Status = Pending</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation</th><th>Maps to column</th></tr>
+        <tr><td>Status</td><td>string</td><td><span class="required">required</span></td><td>must be exactly Approved or Rejected</td><td>LoanApplications.Status</td></tr>
+        <tr><td>DecisionReason</td><td>string</td><td><span class="optional">optional</span></td><td>max 255 chars</td><td>LoanApplications.DecisionReason</td></tr>
+        <tr><td>EmployeeID</td><td>integer</td><td><span class="optional">optional</span></td><td>must exist in Employees</td><td>LoanApplications.EmployeeID</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Business Rules</h4>
+        <table><tr><th>Scenario</th><th>Result</th></tr>
+        <tr><td>Application status is Pending</td><td>Updates Status, DecisionReason, and DecidedAt = GETDATE()</td></tr>
+        <tr><td>Application already Approved or Rejected</td><td>400 Bad Request — cannot re-decide</td></tr>
+        <tr><td>Application ID not found</td><td>404 Not Found</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method POST">POST</span><span class="path">/api/loan-applications/eligibility/check</span><span class="auth-badge auth-required">token</span><span class="edesc">Check if a client qualifies for a loan — read only, no data written</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Body Fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>ClientID</td><td>integer</td><td><span class="required">required</span></td><td>Must have a record in ClientFinancialProfiles</td></tr>
+        <tr><td>LoanTypeID</td><td>integer</td><td><span class="required">required</span></td><td>Must have an active rule in LoanEligibilityRules</td></tr>
+        <tr><td>RequestedAmount</td><td>decimal</td><td><span class="required">required</span></td><td>Used in debt-to-income calculation</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Eligibility Rules evaluated (from LoanEligibilityRules table)</h4>
+        <table><tr><th>Check</th><th>Source column</th><th>Logic</th></tr>
+        <tr><td>Credit score</td><td>LoanEligibilityRules.MinCreditScore</td><td>ClientFinancialProfiles.CreditScore must be &gt;= minimum</td></tr>
+        <tr><td>Annual income</td><td>LoanEligibilityRules.MinAnnualIncome</td><td>ClientFinancialProfiles.AnnualIncome must be &gt;= minimum</td></tr>
+        <tr><td>Debt-to-income ratio</td><td>LoanEligibilityRules.MaxDebtToIncome</td><td>(ExistingDebt + RequestedAmount) / AnnualIncome * 100 must be &lt;= maximum</td></tr>
+        <tr><td>Employment status</td><td>ClientFinancialProfiles.EmploymentStatus</td><td>Must not be Unemployed</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Response fields</h4>
+        <table><tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>eligible</td><td>boolean</td><td>true if all checks pass</td></tr>
+        <tr><td>decision</td><td>string</td><td>Approved or Rejected</td></tr>
+        <tr><td>credit_score</td><td>integer</td><td>Client's current credit score</td></tr>
+        <tr><td>annual_income</td><td>decimal</td><td>Client's annual income</td></tr>
+        <tr><td>debt_to_income_pct</td><td>decimal</td><td>Calculated DTI ratio %</td></tr>
+        <tr><td>failure_reasons</td><td>array</td><td>List of failed checks — empty if eligible</td></tr>
+        <tr><td>rules_applied</td><td>object</td><td>The thresholds that were evaluated</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Example Response — Rejected</h4>
+        <pre>{
+  "eligible": false,
+  "decision": "Rejected",
+  "credit_score": 540,
+  "annual_income": 96000.00,
+  "debt_to_income_pct": 31.25,
+  "failure_reasons": ["Credit score 540 is below minimum 620"],
+  "rules_applied": { "min_credit_score": 620, "min_annual_income": 60000.0, "max_debt_to_income": 40.0 }
+}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CREDIT CARDS -->
+<div class="section">
+  <h2>Credit Cards <span class="tag">GET</span></h2>
+  <div class="info">View credit cards and their transaction history. Each card is linked to a client and an account. Billing cycles track monthly statements.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/credit-cards/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all credit cards</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Request Headers</h4>
+        <table><tr><th>Header</th><th>Required</th><th>Value</th></tr>
+        <tr><td>Authorization</td><td><span class="required">required</span></td><td>Bearer &lt;token&gt;</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">CreditCards</span><span class="db-badge">Clients</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Source table</th><th>Type</th><th>Description</th></tr>
+        <tr><td>CardID</td><td>CreditCards</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>ClientID</td><td>CreditCards</td><td>int</td><td>FK to Clients</td></tr>
+        <tr><td>AccountID</td><td>CreditCards</td><td>int</td><td>FK to Accounts — linked account</td></tr>
+        <tr><td>CardNumber</td><td>CreditCards</td><td>string</td><td>Masked card number e.g. 4111-1111-1111-0001</td></tr>
+        <tr><td>CardType</td><td>CreditCards</td><td>string</td><td>Visa Gold / Mastercard Biz / Visa Platinum etc.</td></tr>
+        <tr><td>CreditLimit</td><td>CreditCards</td><td>decimal</td><td>Maximum credit available</td></tr>
+        <tr><td>CurrentBalance</td><td>CreditCards</td><td>decimal</td><td>Current outstanding balance</td></tr>
+        <tr><td>ExpiryDate</td><td>CreditCards</td><td>date</td><td>Card expiry date</td></tr>
+        <tr><td>Status</td><td>CreditCards</td><td>string</td><td>Active / Blocked / Expired</td></tr>
+        <tr><td>IssuedAt</td><td>CreditCards</td><td>datetime</td><td>Card issuance timestamp</td></tr>
+        <tr><td>FirstName</td><td>Clients</td><td>string</td><td>Card holder first name (joined)</td></tr>
+        <tr><td>LastName</td><td>Clients</td><td>string</td><td>Card holder last name (joined)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/credit-cards/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get a card with recent transactions and billing cycles</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Card ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4>
+        <span class="db-badge">CreditCards</span><span class="db-badge">Clients</span><span class="db-badge">CreditCardTransactions</span><span class="db-badge">BillingCycles</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns a nested object with three keys: <code>card</code>, <code>transactions</code> (last 20), and <code>billing</code> (last 3 cycles).</p>
+      </div>
+      <div class="subsection"><h4>CreditCardTransactions columns returned</h4>
+        <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        <tr><td>CCTransactionID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>CardID</td><td>int</td><td>FK to CreditCards</td></tr>
+        <tr><td>MerchantName</td><td>string</td><td>Merchant name e.g. Amazon</td></tr>
+        <tr><td>Category</td><td>string</td><td>Shopping / Groceries / Travel / Entertainment etc.</td></tr>
+        <tr><td>Amount</td><td>decimal</td><td>Transaction amount</td></tr>
+        <tr><td>Currency</td><td>string</td><td>3-letter ISO code</td></tr>
+        <tr><td>Status</td><td>string</td><td>Approved / Declined</td></tr>
+        <tr><td>TransactionDate</td><td>datetime</td><td>Timestamp — ordered newest first</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>BillingCycles columns returned</h4>
+        <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        <tr><td>BillingCycleID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>CardID</td><td>int</td><td>FK to CreditCards</td></tr>
+        <tr><td>CycleStartDate</td><td>date</td><td>Start of billing period</td></tr>
+        <tr><td>CycleEndDate</td><td>date</td><td>End of billing period</td></tr>
+        <tr><td>TotalAmount</td><td>decimal</td><td>Total charges in the cycle</td></tr>
+        <tr><td>MinimumPayment</td><td>decimal</td><td>Minimum payment due</td></tr>
+        <tr><td>DueDate</td><td>date</td><td>Payment due date</td></tr>
+        <tr><td>Status</td><td>string</td><td>Paid / Overdue / Pending</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/credit-cards/client/{id}</span><span class="auth-badge auth-required">token</span><span class="edesc">All credit cards for a specific client</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>id</td><td>integer</td><td><span class="required">required</span></td><td>Client ID</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Database</h4><span class="db-badge">CreditCards</span>
+        <p style="font-size:13px;color:#4a5568;margin-top:8px;">Returns same columns as list endpoint filtered by ClientID. Returns empty array if client has no cards.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXCHANGE RATES -->
+<div class="section">
+  <h2>Exchange Rates <span class="tag">GET</span></h2>
+  <div class="info">Currency exchange rate reference data. Rates are stored statically in the ExchangeRates table and are not automatically updated.</div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/exchange-rates/</span><span class="auth-badge auth-required">token</span><span class="edesc">List all exchange rates</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Database</h4><span class="db-badge">ExchangeRates</span>
+        <table style="margin-top:8px;"><tr><th>Column returned</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ExchangeRateID</td><td>int</td><td>Primary key</td></tr>
+        <tr><td>BaseCurrency</td><td>string</td><td>Source currency code e.g. ILS</td></tr>
+        <tr><td>TargetCurrency</td><td>string</td><td>Target currency code e.g. USD</td></tr>
+        <tr><td>Rate</td><td>decimal</td><td>Conversion rate — multiply base amount by this value</td></tr>
+        <tr><td>RecordedAt</td><td>datetime</td><td>Timestamp when rate was recorded</td></tr>
+        </table>
+      </div>
+      <div class="subsection"><h4>Available pairs in database</h4>
+        <table><tr><th>From</th><th>To</th><th>Rate</th></tr>
+        <tr><td>ILS</td><td>USD</td><td>0.272000</td></tr>
+        <tr><td>ILS</td><td>EUR</td><td>0.251000</td></tr>
+        <tr><td>ILS</td><td>GBP</td><td>0.215000</td></tr>
+        <tr><td>USD</td><td>ILS</td><td>3.676000</td></tr>
+        <tr><td>EUR</td><td>ILS</td><td>3.984000</td></tr>
+        <tr><td>USD</td><td>EUR</td><td>0.924000</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method GET">GET</span><span class="path">/api/exchange-rates/{base}/{target}</span><span class="auth-badge auth-required">token</span><span class="edesc">Get rate for a specific currency pair</span></div>
+    <div class="endpoint-body">
+      <div class="subsection"><h4>Path Parameters</h4>
+        <table><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>base</td><td>string</td><td><span class="required">required</span></td><td>Base currency code — case insensitive e.g. ILS or ils</td></tr>
+        <tr><td>target</td><td>string</td><td><span class="required">required</span></td><td>Target currency code — case insensitive e.g. USD or usd</td></tr></table>
+      </div>
+      <div class="subsection"><h4>Example</h4>
+        <pre>GET /api/exchange-rates/ILS/USD
+
+{ "ExchangeRateID": 1, "BaseCurrency": "ILS", "TargetCurrency": "USD", "Rate": 0.272, "RecordedAt": "2026-05-07T08:19:12" }</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HTTP STATUS CODES -->
+<div class="section">
+  <h2>HTTP Status Codes</h2>
+  <table>
+    <tr><th>Code</th><th>Meaning</th><th>Common cause</th><th>Enforced by</th></tr>
+    <tr><td>200</td><td>OK</td><td>Successful GET request</td><td>Flask</td></tr>
+    <tr><td>201</td><td>Created</td><td>Successful POST — resource created</td><td>Flask</td></tr>
+    <tr><td>400</td><td>Bad Request</td><td>Missing required fields, insufficient funds, invalid type value</td><td>Flask</td></tr>
+    <tr><td>401</td><td>Unauthorized</td><td>No token provided, token is invalid, token has expired, wrong secret on /token</td><td>Tyk Gateway</td></tr>
+    <tr><td>403</td><td>Forbidden</td><td>Readonly role attempting POST or PUT</td><td>Tyk Gateway</td></tr>
+    <tr><td>404</td><td>Not Found</td><td>Resource ID does not exist in database</td><td>Flask</td></tr>
+    <tr><td>429</td><td>Too Many Requests</td><td>Rate limit exceeded — wait before retrying</td><td>Tyk Gateway</td></tr>
+    <tr><td>500</td><td>Server Error</td><td>Database connection issue or unhandled exception</td><td>Flask</td></tr>
+  </table>
+</div>
+
+<p style="text-align:center;color:#a0aec0;font-size:13px;padding:24px 0;">
+  Banking System API &nbsp;·&nbsp; Internal Use Only &nbsp;·&nbsp;
+  Interactive Swagger UI at <a href="/docs" style="color:#4299e1;">/docs</a> &nbsp;·&nbsp;
+  Base URL: <code style="background:#edf2f7;padding:2px 6px;border-radius:4px;">http://10.100.102.13:8080</code>
+</p>
+
+</div>
+</body>
+</html>
