@@ -1,7 +1,6 @@
 from flask_restx import Namespace, Resource, fields
-from banking_api.db import execute, query
-from banking_api.utils import serialize_row, serialize_rows
-
+from db import execute, query
+from utils import serialize_row, serialize_rows
 ns = Namespace('accounts', description='Bank accounts')
 
 account_model = ns.model('NewAccount', {
