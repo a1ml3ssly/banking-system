@@ -11,8 +11,8 @@ services:
 
   banking-api:
     build:
-      context: ./banking-api
-    container_name: banking-api
+      context: banking_api
+    container_name: banking_api
     restart: unless-stopped
     ports:
       - "5000:5000"
