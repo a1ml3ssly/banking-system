@@ -1,8 +1,29 @@
-credentials.txt
+# Environment & secrets — NEVER commit these
 .env
+*.env
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-.DS_Store
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
 .venv/
+venv/
+env/
+
+# IDE
 .idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

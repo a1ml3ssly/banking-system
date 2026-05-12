@@ -1,46 +1,112 @@
-from flask_restx import Namespace, Resource
+"""
+routes/loans.py
 
-from db import query
-from utils import serialize_row, serialize_rows
+GET  /api/v1/loans              — list loans  (paginated)
+GET  /api/v1/loans/{id}         — get a single loan + payment history
+GET  /api/v1/loans/{id}/payments — list repayment records
+"""
 
-ns = Namespace('loans', description='Loan management')
+from flask_restx import Namespace, Resource, fields, abort, reqparse
+
+from .. import db
+from ..auth import require_auth
+from ..utils import serialize_rows, serialize_row, paginate
+
+ns = Namespace('loans', description='Loan record operations')
+
+# ── Swagger models ─────────────────────────────────────────────────────────────
+loan_model = ns.model('Loan', {
+    'LoanID':       fields.Integer(readonly=True),
+    'AccountID':    fields.Integer,
+    'LoanType':     fields.String,
+    'Principal':    fields.Float,
+    'InterestRate': fields.Float,
+    'TermMonths':   fields.Integer,
+    'Status':       fields.String(description='active | paid_off | defaulted | closed'),
+    'DisbursedAt':  fields.String,
+    'MaturityDate': fields.String,
+})
+
+payment_model = ns.model('LoanPayment', {
+    'PaymentID':    fields.Integer,
+    'LoanID':       fields.Integer,
+    'Amount':       fields.Float,
+    'PaidAt':       fields.String,
+    'Status':       fields.String,
+})
+
+page_parser = reqparse.RequestParser()
+page_parser.add_argument('page',     type=int, default=1,  location='args')
+page_parser.add_argument('per_page', type=int, default=20, location='args')
+page_parser.add_argument('status',   type=str, default='', location='args',
+                         help='Filter by status: active | paid_off | defaulted')
 
 
+# ── Resources ─────────────────────────────────────────────────────────────────
 @ns.route('/')
 class LoanList(Resource):
+
+    @require_auth()
+    @ns.expect(page_parser)
+    @ns.response(503, 'Database unavailable')
     def get(self):
-        """Get all loans"""
-        rows = query('''
-            SELECT l.*, c.FirstName, c.LastName, lt.TypeName AS LoanTypeName
-            FROM Loans l
-            JOIN Clients c ON l.ClientID = c.ClientID
-            JOIN LoanTypes lt ON l.LoanTypeID = lt.LoanTypeID
-            ORDER BY l.LoanID
-        ''')
-        return serialize_rows(rows), 200
+        """List all loans. Optionally filter by status."""
+        args     = page_parser.parse_args()
+        page     = max(1, args['page'])
+        per_page = min(100, max(1, args['per_page']))
+        status   = args['status'].strip()
+
+        try:
+            if status:
+                rows = db.query(
+                    'SELECT * FROM Loans WHERE Status = %s ORDER BY DisbursedAt DESC',
+                    (status,),
+                )
+            else:
+                rows = db.query('SELECT * FROM Loans ORDER BY DisbursedAt DESC')
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+
+        return paginate(serialize_rows(rows), page, per_page)
 
 
 @ns.route('/<int:loan_id>')
-@ns.param('loan_id', 'The loan identifier')
-class Loan(Resource):
+@ns.param('loan_id', 'Loan ID')
+class LoanDetail(Resource):
+
+    @require_auth()
+    @ns.marshal_with(loan_model)
+    @ns.response(404, 'Loan not found')
+    @ns.response(503, 'Database unavailable')
     def get(self, loan_id):
-        """Get a single loan with payment history"""
-        loan = query('''
-            SELECT l.*, c.FirstName, c.LastName, lt.TypeName AS LoanTypeName
-            FROM Loans l
-            JOIN Clients c ON l.ClientID = c.ClientID
-            JOIN LoanTypes lt ON l.LoanTypeID = lt.LoanTypeID
-            WHERE l.LoanID = %s
-        ''', (loan_id,), fetchone=True)
-        if not loan:
-            ns.abort(404, f'Loan {loan_id} not found')
-        payments = query('SELECT * FROM LoanPayments WHERE LoanID = %s ORDER BY PaymentDate', (loan_id,))
-        return {'loan': serialize_row(loan), 'payments': serialize_rows(payments)}, 200
+        """Get a single loan by ID."""
+        try:
+            row = db.query_one('SELECT * FROM Loans WHERE LoanID = %s', (loan_id,))
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+        if not row:
+            abort(404, message=f'Loan {loan_id} not found.')
+        return serialize_row(row)
 
 
-@ns.route('/types')
-class LoanTypeList(Resource):
-    def get(self):
-        """Get all loan types"""
-        rows = query('SELECT * FROM LoanTypes ORDER BY LoanTypeID')
-        return serialize_rows(rows), 200
+@ns.route('/<int:loan_id>/payments')
+@ns.param('loan_id', 'Loan ID')
+class LoanPayments(Resource):
+
+    @require_auth()
+    @ns.marshal_list_with(payment_model)
+    @ns.response(404, 'Loan not found')
+    @ns.response(503, 'Database unavailable')
+    def get(self, loan_id):
+        """List all repayment records for a loan."""
+        try:
+            loan = db.query_one('SELECT LoanID FROM Loans WHERE LoanID = %s', (loan_id,))
+            if not loan:
+                abort(404, message=f'Loan {loan_id} not found.')
+            rows = db.query(
+                'SELECT * FROM LoanPayments WHERE LoanID = %s ORDER BY PaidAt DESC',
+                (loan_id,),
+            )
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+        return serialize_rows(rows)

@@ -1,77 +1,97 @@
-import secrets
-import pymssql
+"""
+seed_credentials.py — populate ApiCredentials with the API keys defined in .env.
+
+Usage:
+    python seed_credentials.py
+
+Add your keys to .env using this format:
+
+    CRED_1_KEY=bk_live_xxx
+    CRED_1_SECRET=bk_secret_xxx
+    CRED_1_LABEL=Admin
+    CRED_1_ROLE=admin
+
+    CRED_2_KEY=bk_live_yyy
+    CRED_2_SECRET=bk_secret_yyy
+    CRED_2_LABEL=Analytics readonly
+    CRED_2_ROLE=readonly
+
+Add as many CRED_N_* groups as you need.
+"""
+
 import os
+import sys
+import pymssql
 from dotenv import load_dotenv
-from werkzeug.security import generate_password_hash
 
 load_dotenv()
 
-CREDENTIALS = [
-    {"name": "Admin Service",         "role": "admin"},
-    {"name": "Analytics Dashboard",   "role": "readonly"},
-    {"name": "Audit Tool",            "role": "readonly"},
-]
+# ── DB connection from env ─────────────────────────────────────────────────────
+_PROFILES = {
+    'office': os.getenv('DB_HOST_OFFICE', ''),
+    'home':   os.getenv('DB_HOST_HOME', ''),
+}
+profile = os.getenv('DB_PROFILE', 'office')
+host    = _PROFILES.get(profile) or _PROFILES.get('office', '')
 
-def generate_key():
-    return "bk_live_" + secrets.token_hex(16)
+conn_args = dict(
+    server   = host,
+    port     = int(os.getenv('DB_PORT', 1433)),
+    user     = os.getenv('DB_USER', 'sa'),
+    password = os.getenv('DB_PASSWORD', ''),
+    database = os.getenv('DB_NAME', 'BankingDB'),
+)
 
-def generate_secret():
-    return "bk_secret_" + secrets.token_hex(24)
+# ── Collect credentials from env ───────────────────────────────────────────────
+credentials = []
+n = 1
+while True:
+    key    = os.getenv(f'CRED_{n}_KEY')
+    secret = os.getenv(f'CRED_{n}_SECRET')
+    if not key or not secret:
+        break
+    credentials.append({
+        'key':    key,
+        'secret': secret,
+        'label':  os.getenv(f'CRED_{n}_LABEL', f'Credential {n}'),
+        'role':   os.getenv(f'CRED_{n}_ROLE', 'readonly'),
+    })
+    n += 1
 
-def seed():
-    conn = pymssql.connect(
-        server=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", 1433)),
-        user=os.getenv("DB_USER", "sa"),
-        password=os.getenv("DB_PASSWORD", "Banking@NUC2024!"),
-        database=os.getenv("DB_NAME", "BankingDB"),
-    )
-    cursor = conn.cursor()
-    generated = []
+if not credentials:
+    print('No credentials found in .env. Add CRED_1_KEY, CRED_1_SECRET, etc.')
+    sys.exit(1)
 
-    print("\nGenerating API credentials...\n")
-    print("=" * 70)
+# ── Insert ─────────────────────────────────────────────────────────────────────
+try:
+    conn = pymssql.connect(**conn_args)
+except Exception as exc:
+    print(f'Cannot connect to database: {exc}')
+    sys.exit(1)
 
-    for c in CREDENTIALS:
-        api_key     = generate_key()
-        api_secret  = generate_secret()
-        secret_hash = generate_password_hash(api_secret)
-        try:
-            cursor.execute(
-                "INSERT INTO ApiCredentials (ApiKey, ApiSecretHash, Name, Role) VALUES (%s, %s, %s, %s)",
-                (api_key, secret_hash, c["name"], c["role"]),
+with conn:
+    with conn.cursor() as cur:
+        for cred in credentials:
+            cur.execute(
+                """
+                IF NOT EXISTS (SELECT 1 FROM ApiCredentials WHERE ApiKey = %s)
+                BEGIN
+                    INSERT INTO ApiCredentials (ApiKey, ApiSecret, Label, Role)
+                    VALUES (%s, %s, %s, %s)
+                    PRINT 'Inserted: ' + %s
+                END
+                ELSE
+                BEGIN
+                    PRINT 'Already exists: ' + %s
+                END
+                """,
+                (
+                    cred['key'],
+                    cred['key'], cred['secret'], cred['label'], cred['role'],
+                    cred['label'],
+                    cred['label'],
+                ),
             )
-            generated.append({"name": c["name"], "role": c["role"], "key": api_key, "secret": api_secret})
-            print(f"  Name   : {c['name']}")
-            print(f"  Role   : {c['role']}")
-            print(f"  Key    : {api_key}")
-            print(f"  Secret : {api_secret}")
-            print(f"  {'─'*60}")
-        except Exception as e:
-            print(f"  ERROR for {c['name']}: {e}")
+        conn.commit()
 
-    conn.commit()
-    conn.close()
-
-    print("\n⚠  Save these secrets now — they cannot be recovered from the database.")
-    print("=" * 70)
-
-    with open("credentials.txt", "w") as f:
-        f.write("Banking System API Credentials\n")
-        f.write("=" * 70 + "\n\n")
-        for c in generated:
-            f.write(f"Name   : {c['name']}\n")
-            f.write(f"Role   : {c['role']}\n")
-            f.write(f"Key    : {c['key']}\n")
-            f.write(f"Secret : {c['secret']}\n")
-            f.write("-" * 70 + "\n\n")
-
-    print("\nCredentials saved to: credentials.txt")
-    print("\nTo get a token:")
-    print('  curl -X POST http://localhost:8080/token \\')
-    print('       -H "Content-Type: application/json" \\')
-    if generated:
-        print(f'       -d \'{{"key": "{generated[0]["key"]}", "secret": "{generated[0]["secret"]}"}}\'')
-
-if __name__ == "__main__":
-    seed()
+print('Done.')

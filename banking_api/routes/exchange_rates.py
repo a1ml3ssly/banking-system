@@ -1,29 +1,68 @@
-from flask_restx import Namespace, Resource
+"""
+routes/exchange_rates.py
 
-from db import query
-from utils import serialize_row, serialize_rows
+GET  /api/v1/exchange-rates                      — list all rates
+GET  /api/v1/exchange-rates/{base}/{target}       — get a specific pair
+"""
 
-ns = Namespace('exchange-rates', description='Currency exchange rates')
+from flask_restx import Namespace, Resource, fields, abort
+
+from .. import db
+from ..auth import require_auth
+from ..utils import serialize_rows, serialize_row
+
+ns = Namespace('exchange-rates', description='Currency exchange rate lookups')
+
+# ── Swagger models ─────────────────────────────────────────────────────────────
+rate_model = ns.model('ExchangeRate', {
+    'RateID':        fields.Integer(readonly=True),
+    'BaseCurrency':  fields.String,
+    'TargetCurrency': fields.String,
+    'Rate':          fields.Float,
+    'EffectiveDate': fields.String,
+    'UpdatedAt':     fields.String,
+})
 
 
+# ── Resources ─────────────────────────────────────────────────────────────────
 @ns.route('/')
 class ExchangeRateList(Resource):
+
+    @require_auth()
+    @ns.marshal_list_with(rate_model)
+    @ns.response(503, 'Database unavailable')
     def get(self):
-        """Get all exchange rates"""
-        rows = query('SELECT * FROM ExchangeRates ORDER BY BaseCurrency, TargetCurrency')
-        return serialize_rows(rows), 200
+        """List all exchange rates, sorted by base currency."""
+        try:
+            rows = db.query('SELECT * FROM ExchangeRates ORDER BY BaseCurrency, TargetCurrency')
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+        return serialize_rows(rows)
 
 
 @ns.route('/<string:base>/<string:target>')
-@ns.param('base',   'Base currency (e.g. ILS)')
-@ns.param('target', 'Target currency (e.g. USD)')
-class ExchangeRate(Resource):
-    def get(self, base, target):
-        """Get exchange rate between two currencies"""
-        row = query(
-            'SELECT * FROM ExchangeRates WHERE BaseCurrency = %s AND TargetCurrency = %s',
-            (base.upper(), target.upper()), fetchone=True,
-        )
+@ns.param('base',   'Base currency code (e.g. USD)')
+@ns.param('target', 'Target currency code (e.g. ILS)')
+class ExchangeRatePair(Resource):
+
+    @require_auth()
+    @ns.marshal_with(rate_model)
+    @ns.response(404, 'Rate not found for this pair')
+    @ns.response(503, 'Database unavailable')
+    def get(self, base: str, target: str):
+        """Get the exchange rate for a specific currency pair."""
+        try:
+            row = db.query_one(
+                """
+                SELECT * FROM ExchangeRates
+                WHERE BaseCurrency  = %s
+                  AND TargetCurrency = %s
+                ORDER BY EffectiveDate DESC
+                """,
+                (base.upper(), target.upper()),
+            )
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
         if not row:
-            ns.abort(404, f'No rate found for {base.upper()} to {target.upper()}')
-        return serialize_row(row), 200
+            abort(404, message=f'No exchange rate found for {base.upper()} → {target.upper()}.')
+        return serialize_row(row)

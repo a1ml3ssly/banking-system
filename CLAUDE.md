@@ -1,199 +1,223 @@
-# CLAUDE.md — Banking System Database Project
+# CLAUDE.md — Banking System API (v2)
 
-This file gives Claude Code full context on the project: what it is, what's been built, the design decisions made, and what remains to do.
-
----
-
-## Project Overview
-
-A complete relational database for a banking system, designed from scratch. The goal is a production-quality schema with supporting SQL scripts, documentation, and potential API/loan-engine layer on top.
-
-**Stack:**
-- Database: Microsoft SQL Server (likely Express edition)
-- SQL Dialect: **T-SQL** (not MySQL, not PostgreSQL)
-- Management Tool: SSMS (SQL Server Management Studio)
-- ERD Visualization: Mermaid.js (in docs); DBeaver or dbdiagram.io recommended for local diagrams
-- Documentation: Word (.docx) generated via the `docx` Node.js library
-- API: Flask + Flask-RESTX (Swagger UI at `/docs`)
-- API Gateway: Tyk (runs in Docker, proxies to Flask on port 8080)
+Full context for Claude Code. Read this before touching any file.
 
 ---
 
-## Schema — 18 Tables
+## Stack
 
-The schema is finalized at **18 tables**, organized into three functional groups:
-
-### Core Banking
-| Table | Purpose |
-|---|---|
-| `Clients` | Individual and business banking customers |
-| `Branches` | Physical bank branches |
-| `Employees` | Staff linked to branches |
-| `Accounts` | Bank accounts (checking, savings, etc.) owned by clients |
-| `Transactions` | All financial movements (debits, credits, transfers) |
-| `Cards` | Debit/credit cards linked to accounts |
-| `Beneficiaries` | Saved transfer recipients for clients |
-
-### Loan Management
-| Table | Purpose |
-|---|---|
-| `Loans` | Active loans linked to accounts |
-| `LoanPayments` | Individual repayment records per loan |
-| `LoanApplications` | Loan application lifecycle tracking |
-| `LoanEligibilityRules` | Configurable thresholds/rules used by the eligibility engine |
-| `ClientFinancialProfiles` | Snapshot of a client's financial health (income, DTI, credit score, etc.) |
-
-### Client Services
-| Table | Purpose |
-|---|---|
-| `SupportTickets` | Customer service cases |
-| `Notifications` | Messages/alerts sent to clients |
-| `AuditLogs` | System-level change tracking |
-| `ExchangeRates` | Currency rates for multi-currency support |
-| `InterestRates` | Rate configurations per product type |
-| `Overdrafts` | Overdraft facilities linked to accounts |
+| Layer       | Technology                                      |
+|-------------|-------------------------------------------------|
+| Language    | Python 3.12                                     |
+| Framework   | Flask 3 + Flask-RESTX (Swagger UI at `/docs`)   |
+| Database    | Microsoft SQL Server — T-SQL dialect            |
+| DB driver   | pymssql                                         |
+| Auth        | JWT (PyJWT) via POST `/api/v1/token`            |
+| Gateway     | Tyk v5.3 (Docker, port 8080)                   |
+| Dev entry   | `python run.py` (port 5000)                     |
 
 ---
 
-## T-SQL Conventions (Critical)
-
-These are non-negotiable — always use T-SQL syntax, never MySQL or PostgreSQL equivalents:
-
-| Concern | Correct T-SQL | Do NOT use |
-|---|---|---|
-| Auto-increment PK | `INT IDENTITY(1,1) PRIMARY KEY` | `AUTO_INCREMENT` |
-| Boolean | `BIT` | `BOOLEAN` / `TINYINT(1)` |
-| Current timestamp | `GETDATE()` | `CURRENT_TIMESTAMP`, `NOW()` |
-| Auto-update timestamp | Not native — use triggers if needed | `ON UPDATE CURRENT_TIMESTAMP` |
-| Self-referencing FK | Separate `ALTER TABLE` after table creation | Inline FK on same table |
-| String types | `NVARCHAR(n)` for Unicode | `VARCHAR` where Unicode matters |
-| Conditional insert | `IF NOT EXISTS (SELECT ...) INSERT ...` | `INSERT IGNORE` / `ON CONFLICT` |
-
----
-
-## Key Design Decisions
-
-- **Industry-standard naming**: All table and column names follow standard banking conventions.
-- **Loan eligibility engine**: Three tables (`ClientFinancialProfiles`, `LoanApplications`, `LoanEligibilityRules`) were added proactively to support a future rule-based eligibility engine. The engine logic (thresholds, scoring, application workflow) is not yet implemented.
-- **Self-referencing FK on `Employees`**: The `ManagerID` column references `EmployeeID` in the same table. This required a separate `ALTER TABLE` statement after creation.
-- **`Accounts` links to `Clients` and `Branches`**: Core ownership and branch assignment are both tracked at the account level.
-- **`AuditLogs`** is intentionally generic — it captures entity name, record ID, action, old/new values as `NVARCHAR` for flexibility.
-- **API folder named `banking_api`** (underscore, not hyphen) — hyphen is invalid in Python module names.
-- **API is a monolith split by route file** — each namespace lives in its own file under `banking_api/routes/`. `app.py` is a slim factory that only wires them together.
-
----
-
-## What Has Been Completed
-
-- [x] Full schema design (18 tables)
-- [x] T-SQL `CREATE TABLE` script for all tables
-- [x] T-SQL `INSERT` population script with realistic seed data
-- [x] ERD rendered in Mermaid.js
-- [x] Word (.docx) technical reference document covering all 18 tables
-- [x] REST API (Flask + Flask-RESTX) with Swagger UI
-- [x] API refactored into monolith structure — one file per route namespace
-- [x] JWT authentication (`/token` endpoint via `auth.py` Blueprint)
-- [x] Tyk API gateway configuration (Docker)
-- [x] `run.py` at project root for local development without entering `banking_api/`
-
----
-
-## What Remains / Next Steps
-
-- [ ] **Loan eligibility engine logic** — Define the rules, scoring thresholds, and application workflow using `LoanEligibilityRules` and `ClientFinancialProfiles`
-- [ ] **Stored procedures** — Common banking operations (transfer funds, apply for loan, close account)
-- [ ] **Views** — Useful read-optimized views (e.g., account summary, client portfolio, overdue loans)
-- [ ] **Indexes** — Performance indexes on high-query columns (e.g., `AccountNumber`, `ClientID`, `TransactionDate`)
-- [ ] **Triggers** — Audit logging trigger, balance update trigger on transactions
-- [ ] **ERD in DBeaver or dbdiagram.io** — SSMS diagram feature has a known compatibility issue with Express edition; use external tools instead
-- [ ] **Flesh out individual route services** — each route file in `banking_api/routes/` needs to be expanded with full CRUD, validation, and error handling
-
----
-
-## Known Issues / Gotchas
-
-- **SSMS Diagram Tool**: The built-in diagram feature fails on some SQL Server Express editions. Use DBeaver or dbdiagram.io for visual ERDs.
-- **Seed data inserts**: Use `SET IDENTITY_INSERT [TableName] ON/OFF` when manually inserting rows with explicit ID values.
-- **No `ON UPDATE CURRENT_TIMESTAMP`** in SQL Server — if `UpdatedAt` columns need auto-refresh, implement via an `AFTER UPDATE` trigger.
-- **DB is not on the dev machine** — the database runs separately (configured for Docker via `host.docker.internal`). The Flask API and Swagger UI start fine without it, but any endpoint that hits the DB will fail locally.
-- **`pymssql` install on Windows** — requires a pre-built wheel. Use `pip install pymssql --only-binary=:all:` if the normal install fails.
-
----
-
-## File Structure
+## Project layout
 
 ```
 /
-├── CLAUDE.md                        ← This file
-├── run.py                           ← Entry point for local dev (run from project root)
-├── docker-compose.yml               ← Spins up Flask API + Tyk gateway + Redis
-├── create_credentials.sql           ← Creates ApiCredentials table
-├── seed_credentials.py              ← Populates ApiCredentials with test keys
-├── .gitignore                       ← Excludes .venv/, .idea/, .env, __pycache__
-├── tyk/
-│   ├── tyk.conf                     ← Tyk gateway config
-│   ├── apps/banking-api.json        ← API definition for Tyk
-│   └── policies/policies.json       ← Auth policies (admin, readonly)
-└── banking_api/
-    ├── app.py                       ← Flask app factory — registers namespaces & blueprints
-    ├── auth.py                      ← JWT config + /token Blueprint
-    ├── db.py                        ← pymssql connection, query(), execute()
-    ├── utils.py                     ← serialize_row(), serialize_rows()
-    ├── requirements.txt
-    ├── Dockerfile
-    ├── review.html                  ← Developer/QA documentation page
-    └── routes/
-        ├── branches.py              → GET /branches, /branches/<id>
-        ├── clients.py               → GET/POST /clients, summary, accounts
-        ├── accounts.py              → GET/POST /accounts, transactions
-        ├── transactions.py          → GET /transactions, deposit-withdrawal, transfer
-        ├── loans.py                 → GET /loans, /loans/<id>, /loans/types
-        ├── loan_applications.py     → GET/POST /loan-applications, decision, eligibility
-        ├── cards.py                 → GET /credit-cards, /<id>, /client/<id>
-        └── exchange_rates.py        → GET /exchange-rates, /<base>/<target>
+├── .env                     ← secrets (gitignored — copy from .env.example)
+├── .env.example             ← template — commit this, never .env
+├── .gitignore
+├── run.py                   ← local dev entry point (3 meaningful lines)
+├── docker-compose.yml       ← all secrets come from .env via env_file:
+├── create_credentials.sql   ← creates ApiCredentials table in SSMS
+├── seed_credentials.py      ← populates ApiCredentials from .env
+├── CLAUDE.md                ← this file
+│
+├── banking_api/
+│   ├── __init__.py          ← create_app() factory — registers all namespaces
+│   ├── config.py            ← all env-var loading; DB_PROFILE switching here
+│   ├── db.py                ← lazy DB connection; query(), query_one(), execute(), execute_returning()
+│   ├── auth.py              ← JWT namespace (/token endpoint) + require_auth() decorator
+│   ├── utils.py             ← serialize_row/rows(), paginate()
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── routes/
+│       ├── branches.py
+│       ├── clients.py
+│       ├── accounts.py
+│       ├── transactions.py
+│       ├── loans.py
+│       ├── loan_applications.py
+│       ├── cards.py
+│       └── exchange_rates.py
+│
+└── tyk/
+    ├── tyk.conf
+    ├── apps/banking-api.json
+    └── policies/policies.json
 ```
 
 ---
 
-## API Structure
+## Running locally (no Docker)
 
-Each route file in `banking_api/routes/` follows this pattern:
-- Creates its own `Namespace` (`ns`)
-- Defines Swagger models on the namespace using `ns.model()`
-- Each **class** = one URL path; each **method** (`get`, `post`, `put`, `delete`) = one endpoint
-- Class docstrings document the URL, methods, and required/optional fields
-- The class name is internal only — Swagger shows the URL + HTTP verb
+```bash
+# 1. Create your env file
+cp .env.example .env
+# edit .env: fill in DB_HOST_OFFICE, DB_HOST_HOME, DB_PASSWORD, JWT_SECRET
 
-### Request parts and how they are defined
+# 2. Install deps (from project root)
+pip install -r banking_api/requirements.txt
 
-| Part | Defined via | Accessed via |
-|---|---|---|
-| URL param | `@ns.route('/<int:id>')` | method argument |
-| Body field | `ns.model()` + `@ns.expect()` | `ns.payload` |
-| Query param | `ns.parser()` + `location='args'` | `parser.parse_args()` |
-| Header | `ns.parser()` + `location='headers'` | `parser.parse_args()` |
-
----
-
-## How to Run
-
-### Local development
-```
+# 3. Start
 python run.py
 ```
-Swagger UI: `http://127.0.0.1:5000/docs`
 
-### Full stack (Docker)
-```
-docker-compose up
-```
-- Flask API: `http://localhost:5000`
-- Tyk gateway: `http://localhost:8080`
-- Swagger UI: `http://localhost:5000/docs`
+Swagger UI: http://127.0.0.1:5000/docs
 
-### Database setup
-1. Open SSMS and connect to your SQL Server instance.
-2. `CREATE DATABASE BankingDB;`
-3. Run `schema/create_tables.sql`
-4. Run `schema/seed_data.sql`
-5. Run `create_credentials.sql` then `python seed_credentials.py`
+The app starts even if the database is unreachable.
+Endpoints return 503 until the DB is available — the process never crashes on startup.
+
+---
+
+## Running with Docker (full stack)
+
+```bash
+docker-compose up --build
+```
+
+- Flask API:    http://localhost:5000
+- Tyk gateway: http://localhost:8080
+- Swagger UI:  http://localhost:5000/docs
+
+---
+
+## DB profile switching
+
+Edit one line in `.env`:
+
+```
+DB_PROFILE=office    # LAN (default)
+DB_PROFILE=home      # Tailscale
+```
+
+The hosts are set separately:
+```
+DB_HOST_OFFICE=192.168.x.x
+DB_HOST_HOME=100.x.x.x
+```
+
+No code changes — just `.env`.
+
+---
+
+## Auth flow
+
+1. POST `/api/v1/token` with `{ "api_key": "...", "api_secret": "..." }`
+2. Receive `{ "access_token": "...", "role": "admin|readonly" }`
+3. All other endpoints require: `Authorization: Bearer <access_token>`
+
+Roles:
+- `admin` — full access (GET + POST + mutations)
+- `readonly` — GET endpoints only
+
+---
+
+## API endpoints
+
+| Method | Path                                      | Role     |
+|--------|-------------------------------------------|----------|
+| POST   | /api/v1/token                             | public   |
+| GET    | /api/v1/branches/                         | any      |
+| POST   | /api/v1/branches/                         | admin    |
+| GET    | /api/v1/branches/{id}                     | any      |
+| GET    | /api/v1/clients/                          | any      |
+| POST   | /api/v1/clients/                          | admin    |
+| GET    | /api/v1/clients/{id}                      | any      |
+| GET    | /api/v1/clients/{id}/accounts             | any      |
+| GET    | /api/v1/clients/{id}/summary              | any      |
+| GET    | /api/v1/accounts/                         | any      |
+| POST   | /api/v1/accounts/                         | admin    |
+| GET    | /api/v1/accounts/{id}                     | any      |
+| GET    | /api/v1/accounts/{id}/transactions        | any      |
+| GET    | /api/v1/transactions/                     | any      |
+| GET    | /api/v1/transactions/{id}                 | any      |
+| POST   | /api/v1/transactions/deposit              | admin    |
+| POST   | /api/v1/transactions/withdrawal           | admin    |
+| POST   | /api/v1/transactions/transfer             | admin    |
+| GET    | /api/v1/loans/                            | any      |
+| GET    | /api/v1/loans/{id}                        | any      |
+| GET    | /api/v1/loans/{id}/payments               | any      |
+| GET    | /api/v1/loan-applications/                | any      |
+| POST   | /api/v1/loan-applications/                | admin    |
+| GET    | /api/v1/loan-applications/{id}            | any      |
+| POST   | /api/v1/loan-applications/{id}/decision   | admin    |
+| GET    | /api/v1/loan-applications/{id}/eligibility | any     |
+| GET    | /api/v1/cards/                            | any      |
+| GET    | /api/v1/cards/{id}                        | any      |
+| GET    | /api/v1/cards/account/{id}                | any      |
+| GET    | /api/v1/cards/client/{id}                 | any      |
+| GET    | /api/v1/exchange-rates/                   | any      |
+| GET    | /api/v1/exchange-rates/{base}/{target}    | any      |
+
+---
+
+## T-SQL conventions (never use MySQL/PostgreSQL syntax)
+
+| Concern               | Correct T-SQL                  | Do NOT use              |
+|-----------------------|--------------------------------|-------------------------|
+| Auto-increment PK     | `INT IDENTITY(1,1) PRIMARY KEY`| `AUTO_INCREMENT`        |
+| Boolean               | `BIT`                          | `BOOLEAN`               |
+| Current timestamp     | `GETDATE()`                    | `NOW()`, `CURRENT_TIMESTAMP` |
+| Auto-update timestamp | `AFTER UPDATE` trigger         | `ON UPDATE CURRENT_TIMESTAMP` |
+| Self-referencing FK   | Separate `ALTER TABLE`         | Inline FK on same table |
+| Unicode strings       | `NVARCHAR(n)`                  | `VARCHAR` for user data |
+| Conditional insert    | `IF NOT EXISTS (...) INSERT`   | `INSERT IGNORE`         |
+| Return inserted row   | `OUTPUT INSERTED.*`            | `RETURNING`             |
+
+---
+
+## Key patterns used throughout
+
+**Lazy DB connection** — `db.get_connection()` is only called inside route handlers.
+The app boots without a DB. Unreachable DB → 503, never a crash.
+
+**require_auth decorator** — wraps resource methods, validates JWT, aborts with 401/403.
+```python
+@require_auth()                      # any valid token
+@require_auth(roles=['admin'])       # admin only
+```
+
+**OUTPUT INSERTED.*** — used in every INSERT to return the created row without a second query.
+```sql
+INSERT INTO Branches (...) OUTPUT INSERTED.* VALUES (...)
+```
+
+**paginate()** — `utils.paginate(rows, page, per_page)` returns a standard envelope:
+```json
+{ "data": [...], "page": 1, "per_page": 20, "total": 142, "pages": 8 }
+```
+
+---
+
+## Credentials setup (first time)
+
+1. In SSMS: run `create_credentials.sql`
+2. Add your keys to `.env`:
+   ```
+   CRED_1_KEY=bk_live_xxx
+   CRED_1_SECRET=bk_secret_xxx
+   CRED_1_LABEL=Admin
+   CRED_1_ROLE=admin
+   ```
+3. `python seed_credentials.py`
+
+---
+
+## What still needs doing
+
+- [ ] Stored procedures (fund transfer, close account)
+- [ ] Views (account summary, client portfolio, overdue loans)
+- [ ] Performance indexes on AccountNumber, ClientID, TransactionDate
+- [ ] Audit trigger (auto-insert into AuditLogs on write)
+- [ ] Balance update trigger (recalculate balance from Transactions)
+- [ ] Employees and Beneficiaries routes (schema exists, no routes yet)
+- [ ] SupportTickets and Notifications routes

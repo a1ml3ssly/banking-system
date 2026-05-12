@@ -1,104 +1,151 @@
-from flask_restx import Namespace, Resource, fields
-from db import execute, query
-from utils import serialize_row, serialize_rows
-ns = Namespace('accounts', description='Bank accounts')
+"""
+routes/accounts.py
 
-account_model = ns.model('NewAccount', {
-    'ClientID': fields.Integer(required=True, example=1),
-    'AccountTypeID': fields.Integer(required=True, example=1),
-    'BranchID': fields.Integer(required=True, example=1),
-    'AccountNumber': fields.String(required=True, example='ACC-010-001'),
-    'Balance': fields.Float(example=0.0),
-    'Currency': fields.String(example='ILS'),
+GET  /api/v1/accounts                      — list accounts  (paginated)
+POST /api/v1/accounts                      — create account  [admin]
+GET  /api/v1/accounts/{id}                 — get account
+GET  /api/v1/accounts/{id}/transactions    — list transactions for this account
+"""
+
+from flask_restx import Namespace, Resource, fields, abort, reqparse
+
+from .. import db
+from ..auth import require_auth
+from ..utils import serialize_rows, serialize_row, paginate
+
+ns = Namespace('accounts', description='Bank account operations')
+
+# ── Swagger models ─────────────────────────────────────────────────────────────
+account_model = ns.model('Account', {
+    'AccountID':     fields.Integer(readonly=True),
+    'AccountNumber': fields.String,
+    'ClientID':      fields.Integer,
+    'BranchID':      fields.Integer,
+    'AccountType':   fields.String(description='checking | savings | business | loan'),
+    'Balance':       fields.Float,
+    'Currency':      fields.String,
+    'Status':        fields.String(description='active | inactive | frozen | closed'),
+    'OpenedAt':      fields.String,
+    'UpdatedAt':     fields.String,
 })
 
+account_input = ns.model('AccountInput', {
+    'ClientID':    fields.Integer(required=True,  description='Owner client ID'),
+    'BranchID':   fields.Integer(required=True,  description='Branch ID'),
+    'AccountType': fields.String(required=True,  description='checking | savings | business'),
+    'Currency':    fields.String(required=False, description='3-letter ISO code', default='ILS'),
+})
 
+transaction_model = ns.model('AccountTransaction', {
+    'TransactionID':   fields.Integer,
+    'TransactionType': fields.String,
+    'Amount':          fields.Float,
+    'Currency':        fields.String,
+    'Description':     fields.String,
+    'ReferenceNumber': fields.String,
+    'TransactionDate': fields.String,
+    'Status':          fields.String,
+})
+
+page_parser = reqparse.RequestParser()
+page_parser.add_argument('page',     type=int, default=1,  location='args')
+page_parser.add_argument('per_page', type=int, default=20, location='args')
+
+txn_parser = reqparse.RequestParser()
+txn_parser.add_argument('page',     type=int, default=1,  location='args')
+txn_parser.add_argument('per_page', type=int, default=50, location='args')
+
+
+# ── Resources ─────────────────────────────────────────────────────────────────
 @ns.route('/')
 class AccountList(Resource):
-    """
-    URL:     /api/accounts/
-    Methods: GET, POST
 
-    GET  — no params, no body required.
-    POST — JSON body required:
-        Required: ClientID (int), AccountTypeID (int), BranchID (int), AccountNumber (str)
-        Optional: Balance (float, default 0.0), Currency (str, default 'ILS')
-    """
-
+    @require_auth()
+    @ns.expect(page_parser)
+    @ns.response(503, 'Database unavailable')
     def get(self):
-        """Get all accounts"""
-        rows = query('''
-                     SELECT a.*, c.FirstName, c.LastName, at.TypeName
-                     FROM Accounts a
-                              JOIN Clients c ON a.ClientID = c.ClientID
-                              JOIN AccountTypes at
-                     ON a.AccountTypeID = at.AccountTypeID
-                     ORDER BY a.AccountID
-                     ''')
-        return serialize_rows(rows), 200
+        """List all accounts with pagination."""
+        args     = page_parser.parse_args()
+        page     = max(1, args['page'])
+        per_page = min(100, max(1, args['per_page']))
+        try:
+            rows = db.query('SELECT * FROM Accounts ORDER BY OpenedAt DESC')
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+        return paginate(serialize_rows(rows), page, per_page)
 
-    @ns.expect(account_model, validate=True)
+    @require_auth(roles=['admin'])
+    @ns.expect(account_input, validate=True)
+    @ns.marshal_with(account_model, code=201)
+    @ns.response(400, 'Validation error')
+    @ns.response(503, 'Database unavailable')
     def post(self):
-        """Open a new bank account"""
-        data = ns.payload
-        new_id = execute('''
-                         INSERT INTO Accounts (ClientID, AccountTypeID, BranchID, AccountNumber, Balance, Currency)
-                         VALUES (%s, %s, %s, %s, %s, %s)
-                         ''', (
-                             data['ClientID'], data['AccountTypeID'], data['BranchID'],
-                             data['AccountNumber'], data.get('Balance', 0.00), data.get('Currency', 'ILS'),
-                         ))
-        row = query('SELECT * FROM Accounts WHERE AccountID = %s', (new_id,), fetchone=True)
+        """Create a new account. [admin only]"""
+        p = ns.payload
+        try:
+            # Validate client + branch exist
+            if not db.query_one('SELECT ClientID FROM Clients WHERE ClientID = %s', (p['ClientID'],)):
+                abort(400, message=f"Client {p['ClientID']} does not exist.")
+            if not db.query_one('SELECT BranchID FROM Branches WHERE BranchID = %s', (p['BranchID'],)):
+                abort(400, message=f"Branch {p['BranchID']} does not exist.")
+
+            # Generate an account number
+            import random, string
+            acct_num = 'ACC' + ''.join(random.choices(string.digits, k=10))
+
+            row = db.execute_returning(
+                """
+                INSERT INTO Accounts (AccountNumber, ClientID, BranchID, AccountType, Balance, Currency, Status)
+                OUTPUT INSERTED.*
+                VALUES (%s, %s, %s, %s, 0.00, %s, 'active')
+                """,
+                (acct_num, p['ClientID'], p['BranchID'], p['AccountType'], p.get('Currency', 'ILS')),
+            )
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
         return serialize_row(row), 201
 
 
 @ns.route('/<int:account_id>')
-@ns.param('account_id', 'The account identifier')
-class Account(Resource):
-    """
-    URL:     /api/accounts/<account_id>
-    Methods: GET
+@ns.param('account_id', 'Account ID')
+class AccountDetail(Resource):
 
-    GET — URL param required:
-        account_id (int): ID of the account to retrieve.
-    No body, no query params, no headers required.
-    """
-
+    @require_auth()
+    @ns.marshal_with(account_model)
+    @ns.response(404, 'Account not found')
+    @ns.response(503, 'Database unavailable')
     def get(self, account_id):
-        """Get a single account"""
-        row = query("""
-                    SELECT a.*, c.FirstName, c.LastName, at.TypeName
-                    FROM Accounts a
-                             JOIN Clients c ON a.ClientID = c.ClientID
-                             JOIN AccountTypes at
-                    ON a.AccountTypeID = at.AccountTypeID
-                    WHERE a.AccountID = %s
-                    """, (account_id,), fetchone=True)
+        """Get a single account by ID."""
+        try:
+            row = db.query_one('SELECT * FROM Accounts WHERE AccountID = %s', (account_id,))
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
         if not row:
-            ns.abort(404, f'Account {account_id} not found')
-        return serialize_row(row), 200
+            abort(404, message=f'Account {account_id} not found.')
+        return serialize_row(row)
 
 
 @ns.route('/<int:account_id>/transactions')
-@ns.param('account_id', 'The account identifier')
+@ns.param('account_id', 'Account ID')
 class AccountTransactions(Resource):
-    """
-    URL:     /api/accounts/<account_id>/transactions
-    Methods: GET
 
-    GET — URL param required:
-        account_id (int): ID of the account whose transactions to retrieve.
-    No body, no query params, no headers required.
-    Returns all transactions where this account is sender or receiver, newest first.
-    """
-
+    @require_auth()
+    @ns.expect(txn_parser)
+    @ns.response(404, 'Account not found')
+    @ns.response(503, 'Database unavailable')
     def get(self, account_id):
-        """Get all transactions for an account"""
-        rows = query('''
-                     SELECT *
-                     FROM Transactions
-                     WHERE AccountID = %s
-                        OR RelatedAccountID = %s
-                     ORDER BY TransactionDate DESC
-                     ''', (account_id, account_id))
-        return serialize_rows(rows), 200
+        """List transactions for a specific account, newest first."""
+        args     = txn_parser.parse_args()
+        page     = max(1, args['page'])
+        per_page = min(200, max(1, args['per_page']))
+        try:
+            acct = db.query_one('SELECT AccountID FROM Accounts WHERE AccountID = %s', (account_id,))
+            if not acct:
+                abort(404, message=f'Account {account_id} not found.')
+            rows = db.query(
+                'SELECT * FROM Transactions WHERE AccountID = %s ORDER BY TransactionDate DESC',
+                (account_id,),
+            )
+        except db.DatabaseUnavailableError as exc:
+            abort(503, message=str(exc))
+        return paginate(serialize_rows(rows), page, per_page)

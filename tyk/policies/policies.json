@@ -1,48 +1,38 @@
 {
-  "admin-policy": {
-    "id": "admin-policy",
-    "name": "Admin - Full Access",
-    "active": true,
-    "rate": 1000,
-    "per": 60,
-    "quota_max": -1,
-    "quota_renewal_rate": 3600,
-    "access_rights": {
-      "banking-api-v1": {
-        "api_name": "Banking System API",
-        "api_id": "banking-api-v1",
-        "versions": ["Default"],
-        "allowed_urls": []
-      }
+  "policies": {
+    "admin-policy": {
+      "id": "admin-policy",
+      "org_id": "default",
+      "rate": 1000,
+      "per": 60,
+      "quota_max": 50000,
+      "quota_renewal_rate": 86400,
+      "access_rights": {
+        "banking-api-v1": {
+          "api_name": "Banking System API",
+          "api_id": "banking-api-v1",
+          "versions": ["Default"]
+        }
+      },
+      "active": true,
+      "name": "Admin Policy"
     },
-    "org_id": "default",
-    "hmac_enabled": false,
-    "tags": ["admin"]
-  },
-
-  "readonly-policy": {
-    "id": "readonly-policy",
-    "name": "ReadOnly - GET requests only, rate limited",
-    "active": true,
-    "rate": 10,
-    "per": 60,
-    "quota_max": 100,
-    "quota_renewal_rate": 3600,
-    "access_rights": {
-      "banking-api-v1": {
-        "api_name": "Banking System API",
-        "api_id": "banking-api-v1",
-        "versions": ["Default"],
-        "allowed_urls": [
-          {
-            "url": ".*",
-            "methods": ["GET"]
-          }
-        ]
-      }
-    },
-    "org_id": "default",
-    "hmac_enabled": false,
-    "tags": ["readonly"]
+    "readonly-policy": {
+      "id": "readonly-policy",
+      "org_id": "default",
+      "rate": 200,
+      "per": 60,
+      "quota_max": 10000,
+      "quota_renewal_rate": 86400,
+      "access_rights": {
+        "banking-api-v1": {
+          "api_name": "Banking System API",
+          "api_id": "banking-api-v1",
+          "versions": ["Default"]
+        }
+      },
+      "active": true,
+      "name": "Read-Only Policy"
+    }
   }
 }

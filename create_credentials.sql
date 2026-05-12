@@ -1,17 +1,28 @@
+-- create_credentials.sql
+-- Run this once against BankingDB to create the API credentials table.
+-- Then run seed_credentials.py to populate it.
+
 USE BankingDB;
 GO
 
-CREATE TABLE ApiCredentials (
-    CredentialID   INT          PRIMARY KEY IDENTITY(1,1),
-    ApiKey         VARCHAR(50)  UNIQUE NOT NULL,
-    ApiSecretHash  VARCHAR(255) NOT NULL,
-    Name           VARCHAR(100) NOT NULL,
-    Role           VARCHAR(20)  NOT NULL CHECK (Role IN ('admin', 'readonly')),
-    IsActive       BIT          DEFAULT 1,
-    CreatedAt      DATETIME     DEFAULT GETDATE(),
-    LastUsedAt     DATETIME
-);
-GO
+IF NOT EXISTS (
+    SELECT 1 FROM sys.tables WHERE name = 'ApiCredentials'
+)
+BEGIN
+    CREATE TABLE ApiCredentials (
+        CredentialID INT          IDENTITY(1,1) PRIMARY KEY,
+        ApiKey       NVARCHAR(64) NOT NULL UNIQUE,
+        ApiSecret    NVARCHAR(128) NOT NULL,
+        Label        NVARCHAR(100) NULL,
+        Role         NVARCHAR(50)  NOT NULL DEFAULT 'readonly',
+        IsActive     BIT           NOT NULL DEFAULT 1,
+        CreatedAt    DATETIME      NOT NULL DEFAULT GETDATE()
+    );
 
-PRINT 'ApiCredentials table created. Run seed_credentials.py to insert credentials.';
+    PRINT 'ApiCredentials table created.';
+END
+ELSE
+BEGIN
+    PRINT 'ApiCredentials table already exists — skipping.';
+END
 GO

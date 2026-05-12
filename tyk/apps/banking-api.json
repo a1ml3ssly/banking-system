@@ -1,26 +1,16 @@
 {
   "api_id": "banking-api-v1",
-  "id": "62f3abe7e8b4c0123456789a",
-  "slug": "banking",
-  "name": "Banking System API",
   "org_id": "default",
-  "use_keyless": false,
-  "use_jwt": true,
-  "jwt_signing_method": "hmac",
-  "jwt_source": "QmFua2luZ0RlbW9TZWNyZXQyMDI0IQ==",
-  "jwt_identity_base_field": "sub",
-  "jwt_policy_field_name": "pol",
-  "jwt_default_policies": [],
-  "enable_jwt": true,
-  "strip_auth_data": true,
-  "auth": {
-    "auth_header_name": "Authorization",
-    "use_param": false,
-    "use_cookie": false
-  },
+  "name": "Banking System API",
   "definition": {
     "location": "header",
     "key": "x-api-version"
+  },
+  "use_keyless": false,
+  "auth": {
+    "use_param": false,
+    "use_cookie": false,
+    "auth_header_name": "x-api-key"
   },
   "version_data": {
     "not_versioned": true,
@@ -29,111 +19,18 @@
         "name": "Default",
         "use_extended_paths": true,
         "extended_paths": {
-          "ignored": [
-            {
-              "path": "/token",
-              "method_actions": {
-                "POST": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/health",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/docs",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/docs/{path}",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/swaggerui/{path}",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/api/swagger.json",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            },
-            {
-              "path": "/review",
-              "method_actions": {
-                "GET": {
-                  "action": "no_action",
-                  "code": 200,
-                  "data": "",
-                  "headers": {}
-                }
-              }
-            }
-          ]
+          "white_list": [],
+          "black_list": [],
+          "ignored": []
         }
       }
     }
   },
   "proxy": {
-    "listen_path": "/",
+    "listen_path": "/banking/",
     "target_url": "http://banking-api:5000",
-    "strip_listen_path": false,
-    "preserve_host_header": false,
-    "disable_strip_slash": false
+    "strip_listen_path": false
   },
   "active": true,
-  "response_processors": [],
-  "custom_middleware": {
-    "pre": [],
-    "post": [],
-    "post_key_auth": [],
-    "auth_check": {
-      "name": "",
-      "path": "",
-      "require_session": false
-    },
-    "response": [],
-    "driver": ""
-  },
-  "tags": [],
-  "enable_context_vars": true,
-  "config_data": {}
+  "tags": ["banking", "v1"]
 }
