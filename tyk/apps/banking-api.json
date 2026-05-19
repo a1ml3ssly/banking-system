@@ -21,7 +21,20 @@
         "extended_paths": {
           "white_list": [],
           "black_list": [],
-          "ignored": []
+          "ignored": [
+            {
+              "path": "/review",
+              "method_actions": {
+                "GET": { "action": "no_action", "code": 200, "data": "", "headers": {} }
+              }
+            },
+            {
+              "path": "/doc",
+              "method_actions": {
+                "GET": { "action": "no_action", "code": 200, "data": "", "headers": {} }
+              }
+            }
+          ]
         }
       }
     }

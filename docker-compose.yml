@@ -1,4 +1,6 @@
-version: '3.8'
+networks:
+  banking-net:
+    driver: bridge
 
 services:
 
@@ -8,10 +10,13 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    networks:
+      - banking-net
 
   banking-api:
     build:
-      context: banking_api
+      context: .
+      dockerfile: banking_api/Dockerfile
     container_name: banking-api
     restart: unless-stopped
     ports:
@@ -22,9 +27,11 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - redis
+    networks:
+      - banking-net
 
   tyk-gateway:
-    image: tykio/tyk-gateway:v5.3
+    image: tykio/tyk-gateway:v5.0
     container_name: tyk-gateway
     restart: unless-stopped
     ports:
@@ -38,3 +45,5 @@ services:
     depends_on:
       - redis
       - banking-api
+    networks:
+      - banking-net
