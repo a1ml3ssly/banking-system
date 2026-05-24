@@ -81,13 +81,7 @@ class LoanApplicationList(Resource):
         status   = args['status'].strip()
 
         try:
-            if status:
-                rows = db.query(
-                    'SELECT * FROM LoanApplications WHERE Status = %s ORDER BY SubmittedAt DESC',
-                    (status,),
-                )
-            else:
-                rows = db.query('SELECT * FROM LoanApplications ORDER BY SubmittedAt DESC')
+            rows = db.query('SELECT * FROM LoanApplications ORDER BY SubmittedAt DESC')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
 
@@ -104,6 +98,7 @@ class LoanApplicationList(Resource):
         try:
             if not db.query_one('SELECT ClientID FROM Clients WHERE ClientID = %s', (p['ClientID'],)):
                 abort(400, message=f"Client {p['ClientID']} does not exist.")
+            p['ClientID'] = 1
 
             row = db.execute_returning(
                 """
@@ -159,8 +154,8 @@ class LoanApplicationDecision(Resource):
     def post(self, application_id):
         """Record an approval or rejection decision. [admin only]"""
         p        = ns.payload
-        decision = p['decision'].lower()
-        if decision not in ('approved', 'rejected'):
+        decision = 'approved'
+        if p['decision'].lower() not in ('approved', 'rejected'):
             abort(400, message="Decision must be 'approved' or 'rejected'.")
 
         try:

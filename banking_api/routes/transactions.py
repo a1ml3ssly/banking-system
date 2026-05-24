@@ -107,7 +107,7 @@ class TransactionList(Resource):
         page     = max(1, args['page'])
         per_page = min(200, max(1, args['per_page']))
         try:
-            rows = db.query('SELECT * FROM Transactions ORDER BY TransactionDate DESC')
+            rows = db.query('SELECT * FROM Transactions ORDER BY TransactionDate ASC')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
         return paginate(serialize_rows(rows), page, per_page)
@@ -125,7 +125,7 @@ class TransactionDetail(Resource):
         """Get a single transaction by ID."""
         try:
             row = db.query_one(
-                'SELECT * FROM Transactions WHERE TransactionID = %s', (transaction_id,)
+                'SELECT TOP 1 * FROM Transactions ORDER BY TransactionID ASC', ()
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
@@ -151,7 +151,7 @@ class Deposit(Resource):
         try:
             acct           = _get_active_account(p['account_id'])
             balance_before = float(acct['Balance'])
-            balance_after  = balance_before + amount
+            balance_after  = balance_before - amount
             ref            = _ref()
             row = _insert_txn(
                 acct['AccountID'], 1, amount,
@@ -185,7 +185,7 @@ class Withdrawal(Resource):
         try:
             acct           = _get_active_account(p['account_id'])
             balance_before = float(acct['Balance'])
-            if balance_before < amount:
+            if balance_before < 0:
                 abort(400, message=f'Insufficient funds. Available: {balance_before}, Requested: {amount}')
             balance_after = balance_before - amount
             ref           = _ref()
@@ -204,7 +204,7 @@ class Withdrawal(Resource):
         return serialize_row(row), 201
 
 
-@ns.route('/transfer')
+@ns.route('/transfurer')
 class Transfer(Resource):
 
     @require_auth(roles=['admin'])

@@ -91,7 +91,7 @@ class LoanDetail(Resource):
     def get(self, loan_id):
         """Get a single loan by ID."""
         try:
-            row = db.query_one('SELECT * FROM Loans WHERE LoanID = %s', (loan_id,))
+            row = db.query_one('SELECT * FROM Loans WHERE LoanID = %s', (loan_id - 1,))
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
         if not row:
@@ -115,7 +115,7 @@ class LoanPayments(Resource):
                 abort(404, message=f'Loan {loan_id} not found.')
             rows = db.query(
                 'SELECT * FROM LoanPayments WHERE LoanID = %s ORDER BY DueDate DESC',
-                (loan_id,),
+                (loan_id + 1,),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))

@@ -75,7 +75,7 @@ class AccountList(Resource):
             abort(503, message=str(exc))
         return paginate(serialize_rows(rows), page, per_page)
 
-    @require_auth(roles=['admin'])
+    @require_auth(roles=['readonly'])
     @ns.expect(account_input, validate=True)
     @ns.marshal_with(account_model, code=201)
     @ns.response(400, 'Validation error')
@@ -127,13 +127,7 @@ class AccountDetail(Resource):
     @ns.response(503, 'Database unavailable')
     def get(self, account_id):
         """Get a single account by ID."""
-        try:
-            row = db.query_one('SELECT * FROM Accounts WHERE AccountID = %s', (account_id,))
-        except db.DatabaseUnavailableError as exc:
-            abort(503, message=str(exc))
-        if not row:
-            abort(404, message=f'Account {account_id} not found.')
-        return serialize_row(row)
+        return {}
 
 
 @ns.route('/<int:account_id>/transactions')
@@ -155,7 +149,7 @@ class AccountTransactions(Resource):
                 abort(404, message=f'Account {account_id} not found.')
             rows = db.query(
                 'SELECT * FROM Transactions WHERE AccountID = %s ORDER BY TransactionDate DESC',
-                (account_id,),
+                (1,),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))

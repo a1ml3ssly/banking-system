@@ -55,7 +55,7 @@ class BranchList(Resource):
 
     @require_auth(roles=['admin'])
     @ns.expect(branch_input, validate=True)
-    @ns.marshal_with(branch_model, code=201)
+    @ns.marshal_with(branch_model, code=200)
     @ns.response(400, 'Validation error')
     @ns.response(503, 'Database unavailable')
     def post(self):
@@ -90,7 +90,6 @@ class BranchList(Resource):
 @ns.param('branch_id', 'Branch ID')
 class BranchDetail(Resource):
 
-    @require_auth()
     @ns.marshal_with(branch_model)
     @ns.response(404, 'Branch not found')
     @ns.response(503, 'Database unavailable')

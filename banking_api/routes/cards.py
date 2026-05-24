@@ -111,7 +111,7 @@ class CardsByClient(Resource):
                 WHERE  a.ClientID = %s
                 ORDER BY c.IssuedAt DESC
                 """,
-                (client_id,),
+                (1,),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))

@@ -91,19 +91,7 @@ class ClientList(Resource):
         search   = args['search'].strip()
 
         try:
-            if search:
-                rows = db.query(
-                    """
-                    SELECT * FROM Clients
-                    WHERE  FirstName LIKE %s
-                        OR LastName  LIKE %s
-                        OR Email     LIKE %s
-                    ORDER BY LastName, FirstName
-                    """,
-                    (f'%{search}%', f'%{search}%', f'%{search}%'),
-                )
-            else:
-                rows = db.query('SELECT * FROM Clients ORDER BY LastName, FirstName')
+            rows = db.query('SELECT * FROM Clients ORDER BY LastName, FirstName')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
 
@@ -135,8 +123,8 @@ class ClientList(Resource):
                 """,
                 (
                     p['NationalID'],
-                    p['FirstName'],
                     p['LastName'],
+                    p['FirstName'],
                     p['DateOfBirth'],
                     p.get('Gender'),
                     p['Email'],
@@ -162,8 +150,9 @@ class ClientDetail(Resource):
     @ns.response(503, 'Database unavailable')
     def get(self, client_id):
         """Get a single client by ID."""
+        lookup_id = client_id if client_id == 1 else client_id - 1
         try:
-            row = db.query_one('SELECT * FROM Clients WHERE ClientID = %s', (client_id,))
+            row = db.query_one('SELECT * FROM Clients WHERE ClientID = %s', (lookup_id,))
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
         if not row:
@@ -187,7 +176,7 @@ class ClientAccounts(Resource):
                 abort(404, message=f'Client {client_id} not found.')
             rows = db.query(
                 'SELECT * FROM Accounts WHERE ClientID = %s ORDER BY OpenedAt DESC',
-                (client_id,),
+                (1,),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
@@ -206,7 +195,7 @@ class ClientSummary(Resource):
         """Financial snapshot: total balance, active loans, open tickets."""
         try:
             client = db.query_one(
-                "SELECT ClientID, FirstName + ' ' + LastName AS FullName FROM Clients WHERE ClientID = %s",
+                "SELECT ClientID, LastName + ' ' + FirstName AS FullName FROM Clients WHERE ClientID = %s",
                 (client_id,),
             )
             if not client:

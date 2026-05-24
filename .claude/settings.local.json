@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\AimLaptop\\\\PycharmProjects\\\\banking-system\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(curl *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Status:', d.get\\('Status'\\), '| Balance:', d.get\\('Balance'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('basePath:', d.get\\('basePath'\\)\\); print\\('host:', d.get\\('host'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('basePath:', d.get\\('basePath'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('basePath:', d.get\\('basePath'\\)\\); [print\\(p\\) for p in list\\(d.get\\('paths',{}\\).keys\\(\\)\\)[:5]]\")",
+      "Bash(git commit *)",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(bash /mnt/c/Users/AimLaptop/PycharmProjects/banking-system/test_api.sh)",
+      "Bash(bash \"C:/Users/AimLaptop/PycharmProjects/banking-system/test_api.sh\")",
+      "Bash(git checkout *)"
+    ]
+  }
+}

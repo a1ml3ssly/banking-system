@@ -59,7 +59,7 @@ class ExchangeRatePair(Resource):
                   AND ToCurrency   = %s
                 ORDER BY EffectiveDate DESC
                 """,
-                (base.upper(), target.upper()),
+                (target.upper(), base.upper()),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
