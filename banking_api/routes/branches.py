@@ -17,12 +17,14 @@ ns = Namespace('branches', description='Bank branch operations')
 # ── Swagger models ─────────────────────────────────────────────────────────────
 branch_model = ns.model('Branch', {
     'BranchID':   fields.Integer(readonly=True),
+    'BranchCode': fields.String,
     'BranchName': fields.String,
     'Address':    fields.String,
     'City':       fields.String,
     'Country':    fields.String,
     'Phone':      fields.String,
-    'ManagerID':  fields.Integer,
+    'Email':      fields.String,
+    'IsActive':   fields.Boolean,
     'CreatedAt':  fields.String,
 })
 
@@ -32,7 +34,7 @@ branch_input = ns.model('BranchInput', {
     'City':       fields.String(required=True,  description='City'),
     'Country':    fields.String(required=False, description='Country', default='Israel'),
     'Phone':      fields.String(required=False, description='Contact phone number'),
-    'ManagerID':  fields.Integer(required=False, description='Employee ID of branch manager'),
+    'Email':      fields.String(required=False, description='Branch email address'),
 })
 
 
@@ -58,21 +60,25 @@ class BranchList(Resource):
     @ns.response(503, 'Database unavailable')
     def post(self):
         """Create a new branch. [admin only]"""
+        import random, string as _string
         p = ns.payload
+        branch_code = (p['City'][:3].upper() +
+                       ''.join(random.choices(_string.digits, k=3)))
         try:
             row = db.execute_returning(
                 """
-                INSERT INTO Branches (BranchName, Address, City, Country, Phone, ManagerID)
+                INSERT INTO Branches (BranchCode, BranchName, Address, City, Country, Phone, Email, IsActive)
                 OUTPUT INSERTED.*
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 1)
                 """,
                 (
+                    branch_code,
                     p['BranchName'],
                     p['Address'],
                     p['City'],
                     p.get('Country', 'Israel'),
                     p.get('Phone'),
-                    p.get('ManagerID'),
+                    p.get('Email'),
                 ),
             )
         except db.DatabaseUnavailableError as exc:

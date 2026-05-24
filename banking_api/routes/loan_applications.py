@@ -45,8 +45,10 @@ application_input = ns.model('LoanApplicationInput', {
 })
 
 decision_input = ns.model('DecisionInput', {
-    'decision':      fields.String(required=True,  description='approved | rejected'),
-    'decision_note': fields.String(required=False, description='Officer note / reason'),
+    'decision':       fields.String(required=True,  description='approved | rejected'),
+    'decision_note':  fields.String(required=False, description='Officer note / rejection reason'),
+    'ApprovedAmount': fields.Float(required=False,  description='Approved loan amount (for approvals)'),
+    'ApprovedRate':   fields.Float(required=False,  description='Approved interest rate % (for approvals)'),
 })
 
 eligibility_result = ns.model('EligibilityResult', {
@@ -175,11 +177,19 @@ class LoanApplicationDecision(Resource):
                 UPDATE LoanApplications
                 SET    Status          = %s,
                        ReviewedAt      = GETDATE(),
-                       RejectionReason = %s
+                       RejectionReason = %s,
+                       ApprovedAmount  = %s,
+                       ApprovedRate    = %s
                 OUTPUT INSERTED.*
                 WHERE  ApplicationID = %s
                 """,
-                (decision, p.get('decision_note', ''), application_id),
+                (
+                    decision,
+                    p.get('decision_note', ''),
+                    p.get('ApprovedAmount'),
+                    p.get('ApprovedRate'),
+                    application_id,
+                ),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
@@ -222,48 +232,71 @@ class LoanEligibilityCheck(Resource):
         score      = 100
         eligible   = True
 
-        credit_score   = float(profile.get('CreditScore', 0) or 0)
-        monthly_income = float(profile.get('MonthlyIncome', 0) or 0)
-        dti_ratio      = float(profile.get('DebtToIncomeRatio', 1) or 1)
-        requested      = float(app['RequestedAmount'])
+        credit_score     = float(profile.get('CreditScore', 0) or 0)
+        monthly_income   = float(profile.get('MonthlyIncome', 0) or 0)
+        monthly_expenses = float(profile.get('MonthlyExpenses', 0) or 0)
+        dti_ratio        = (monthly_expenses / monthly_income) if monthly_income > 0 else 999.0
+        years_employed   = float(profile.get('YearsEmployed', 0) or 0)
+        bankruptcy       = bool(profile.get('BankruptcyHistory', False))
+        requested        = float(app['RequestedAmount'])
+        app_loan_type    = (app.get('LoanType') or '').lower()
 
         for rule in rules:
-            rule_name  = rule.get('RuleName', '')
-            threshold  = float(rule.get('ThresholdValue', 0) or 0)
-            rule_type  = rule.get('RuleType', '').lower()
-            penalty    = int(rule.get('ScorePenalty', 0) or 0)
+            rule_name = rule.get('RuleName', '')
+            loan_type = rule.get('LoanType')
+            if loan_type and loan_type.lower() != app_loan_type:
+                continue
 
-            if rule_type == 'min_credit_score':
-                if credit_score < threshold:
-                    reasons.append(f'FAIL [{rule_name}]: credit score {credit_score} < minimum {threshold}')
-                    score     -= penalty
-                    eligible   = False
+            min_credit = rule.get('MinCreditScore')
+            if min_credit is not None:
+                if credit_score < float(min_credit):
+                    reasons.append(f'FAIL [{rule_name}]: credit score {credit_score} < minimum {min_credit}')
+                    score   -= 20
+                    eligible = False
                 else:
-                    reasons.append(f'PASS [{rule_name}]: credit score {credit_score} >= {threshold}')
+                    reasons.append(f'PASS [{rule_name}]: credit score {credit_score} >= {min_credit}')
 
-            elif rule_type == 'max_dti':
-                if dti_ratio > threshold:
-                    reasons.append(f'FAIL [{rule_name}]: DTI ratio {dti_ratio:.2f} > maximum {threshold}')
-                    score     -= penalty
-                    eligible   = False
+            max_dti = rule.get('MaxDTIRatio')
+            if max_dti is not None:
+                if dti_ratio > float(max_dti):
+                    reasons.append(f'FAIL [{rule_name}]: DTI {dti_ratio:.2f} > maximum {max_dti}')
+                    score   -= 15
+                    eligible = False
                 else:
-                    reasons.append(f'PASS [{rule_name}]: DTI ratio {dti_ratio:.2f} <= {threshold}')
+                    reasons.append(f'PASS [{rule_name}]: DTI {dti_ratio:.2f} <= {max_dti}')
 
-            elif rule_type == 'min_income':
-                if monthly_income < threshold:
-                    reasons.append(f'FAIL [{rule_name}]: monthly income {monthly_income} < minimum {threshold}')
-                    score     -= penalty
-                    eligible   = False
+            min_income = rule.get('MinMonthlyIncome')
+            if min_income is not None:
+                if monthly_income < float(min_income):
+                    reasons.append(f'FAIL [{rule_name}]: income {monthly_income} < minimum {min_income}')
+                    score   -= 15
+                    eligible = False
                 else:
-                    reasons.append(f'PASS [{rule_name}]: monthly income {monthly_income} >= {threshold}')
+                    reasons.append(f'PASS [{rule_name}]: income {monthly_income} >= {min_income}')
 
-            elif rule_type == 'max_loan_amount':
-                if requested > threshold:
-                    reasons.append(f'FAIL [{rule_name}]: requested {requested} > maximum {threshold}')
-                    score     -= penalty
-                    eligible   = False
+            min_years = rule.get('MinYearsEmployed')
+            if min_years is not None:
+                if years_employed < float(min_years):
+                    reasons.append(f'FAIL [{rule_name}]: years employed {years_employed} < minimum {min_years}')
+                    score   -= 10
+                    eligible = False
                 else:
-                    reasons.append(f'PASS [{rule_name}]: requested {requested} <= {threshold}')
+                    reasons.append(f'PASS [{rule_name}]: years employed {years_employed} >= {min_years}')
+
+            max_loan = rule.get('MaxLoanAmount')
+            if max_loan is not None:
+                if requested > float(max_loan):
+                    reasons.append(f'FAIL [{rule_name}]: requested {requested} > maximum {max_loan}')
+                    score   -= 20
+                    eligible = False
+                else:
+                    reasons.append(f'PASS [{rule_name}]: requested {requested} <= {max_loan}')
+
+            allow_bankruptcy = rule.get('AllowBankruptcy', True)
+            if not allow_bankruptcy and bankruptcy:
+                reasons.append(f'FAIL [{rule_name}]: bankruptcy history disqualifies applicant')
+                score   -= 30
+                eligible = False
 
         score = max(0, score)
 
@@ -272,6 +305,6 @@ class LoanEligibilityCheck(Resource):
             'score':          score,
             'reasons':        reasons,
             'credit_score':   credit_score,
-            'dti_ratio':      dti_ratio,
+            'dti_ratio':      round(dti_ratio, 4),
             'monthly_income': monthly_income,
         }

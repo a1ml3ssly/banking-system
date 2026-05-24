@@ -19,31 +19,40 @@ ns = Namespace('clients', description='Client (customer) operations')
 # ── Swagger models ─────────────────────────────────────────────────────────────
 client_model = ns.model('Client', {
     'ClientID':    fields.Integer(readonly=True),
+    'NationalID':  fields.String,
     'FirstName':   fields.String,
     'LastName':    fields.String,
+    'DateOfBirth': fields.String,
+    'Gender':      fields.String,
     'Email':       fields.String,
     'Phone':       fields.String,
-    'DateOfBirth': fields.String,
     'Address':     fields.String,
-    'ClientType':  fields.String(description='individual | business'),
+    'City':        fields.String,
+    'Country':     fields.String,
+    'IsActive':    fields.Boolean,
+    'KYCVerified': fields.Boolean,
+    'BranchID':    fields.Integer,
     'CreatedAt':   fields.String,
 })
 
 client_input = ns.model('ClientInput', {
+    'NationalID':  fields.String(required=True,  description='National ID number'),
     'FirstName':   fields.String(required=True),
     'LastName':    fields.String(required=True),
+    'DateOfBirth': fields.String(required=True,  description='YYYY-MM-DD'),
     'Email':       fields.String(required=True),
+    'Gender':      fields.String(required=False, description='M | F'),
     'Phone':       fields.String(required=False),
-    'DateOfBirth': fields.String(required=False, description='YYYY-MM-DD'),
     'Address':     fields.String(required=False),
-    'ClientType':  fields.String(required=False, default='individual',
-                                 description='individual | business'),
+    'City':        fields.String(required=False),
+    'Country':     fields.String(required=False, default='Israel'),
+    'BranchID':    fields.Integer(required=False, description='Assigned branch ID'),
 })
 
 account_model = ns.model('ClientAccount', {
     'AccountID':     fields.Integer,
     'AccountNumber': fields.String,
-    'AccountType':   fields.String,
+    'AccountTypeID': fields.Integer,
     'Balance':       fields.Float,
     'Currency':      fields.String,
     'Status':        fields.String,
@@ -118,18 +127,24 @@ class ClientList(Resource):
 
             row = db.execute_returning(
                 """
-                INSERT INTO Clients (FirstName, LastName, Email, Phone, DateOfBirth, Address, ClientType)
+                INSERT INTO Clients
+                    (NationalID, FirstName, LastName, DateOfBirth, Gender,
+                     Email, Phone, Address, City, Country, BranchID)
                 OUTPUT INSERTED.*
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
+                    p['NationalID'],
                     p['FirstName'],
                     p['LastName'],
+                    p['DateOfBirth'],
+                    p.get('Gender'),
                     p['Email'],
                     p.get('Phone'),
-                    p.get('DateOfBirth'),
                     p.get('Address'),
-                    p.get('ClientType', 'individual'),
+                    p.get('City'),
+                    p.get('Country', 'Israel'),
+                    p.get('BranchID'),
                 ),
             )
         except db.DatabaseUnavailableError as exc:

@@ -21,18 +21,19 @@ account_model = ns.model('Account', {
     'AccountNumber': fields.String,
     'ClientID':      fields.Integer,
     'BranchID':      fields.Integer,
-    'AccountType':   fields.String(description='checking | savings | business | loan'),
+    'AccountTypeID': fields.Integer,
     'Balance':       fields.Float,
     'Currency':      fields.String,
-    'Status':        fields.String(description='active | inactive | frozen | closed'),
+    'Status':        fields.String(description='Active | Inactive | Frozen | Closed'),
     'OpenedAt':      fields.String,
+    'ClosedAt':      fields.String,
     'UpdatedAt':     fields.String,
 })
 
 account_input = ns.model('AccountInput', {
     'ClientID':    fields.Integer(required=True,  description='Owner client ID'),
     'BranchID':   fields.Integer(required=True,  description='Branch ID'),
-    'AccountType': fields.String(required=True,  description='checking | savings | business'),
+    'AccountType': fields.String(required=True,  description='TypeCode or TypeName from AccountTypes (e.g. Checking, Savings)'),
     'Currency':    fields.String(required=False, description='3-letter ISO code', default='ILS'),
 })
 
@@ -89,17 +90,25 @@ class AccountList(Resource):
             if not db.query_one('SELECT BranchID FROM Branches WHERE BranchID = %s', (p['BranchID'],)):
                 abort(400, message=f"Branch {p['BranchID']} does not exist.")
 
+            # Resolve AccountTypeID from TypeCode or TypeName
+            at = db.query_one(
+                'SELECT AccountTypeID FROM AccountTypes WHERE TypeCode = %s OR TypeName = %s',
+                (p['AccountType'], p['AccountType']),
+            )
+            if not at:
+                abort(400, message=f"Unknown account type '{p['AccountType']}'. Use a valid TypeCode or TypeName from AccountTypes.")
+
             # Generate an account number
             import random, string
             acct_num = 'ACC' + ''.join(random.choices(string.digits, k=10))
 
             row = db.execute_returning(
                 """
-                INSERT INTO Accounts (AccountNumber, ClientID, BranchID, AccountType, Balance, Currency, Status)
+                INSERT INTO Accounts (AccountNumber, ClientID, BranchID, AccountTypeID, Balance, Currency, Status)
                 OUTPUT INSERTED.*
-                VALUES (%s, %s, %s, %s, 0.00, %s, 'active')
+                VALUES (%s, %s, %s, %s, 0.00, %s, 'Active')
                 """,
-                (acct_num, p['ClientID'], p['BranchID'], p['AccountType'], p.get('Currency', 'ILS')),
+                (acct_num, p['ClientID'], p['BranchID'], at['AccountTypeID'], p.get('Currency', 'ILS')),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))

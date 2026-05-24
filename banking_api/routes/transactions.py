@@ -19,15 +19,21 @@ ns = Namespace('transactions', description='Transaction operations')
 
 # ── Swagger models ─────────────────────────────────────────────────────────────
 transaction_model = ns.model('Transaction', {
-    'TransactionID':   fields.Integer(readonly=True),
-    'AccountID':       fields.Integer,
-    'TransactionType': fields.String,
-    'Amount':          fields.Float,
-    'Currency':        fields.String,
-    'Description':     fields.String,
-    'ReferenceNumber': fields.String,
-    'TransactionDate': fields.String,
-    'Status':          fields.String,
+    'TransactionID':       fields.Integer(readonly=True),
+    'ReferenceNumber':     fields.String,
+    'AccountID':           fields.Integer,
+    'TransactionTypeID':   fields.Integer,
+    'Amount':              fields.Float,
+    'Currency':            fields.String,
+    'BalanceBefore':       fields.Float,
+    'BalanceAfter':        fields.Float,
+    'Description':         fields.String,
+    'CounterpartyName':    fields.String,
+    'CounterpartyAccount': fields.String,
+    'Status':              fields.String,
+    'ChannelCode':         fields.String,
+    'TransactionDate':     fields.String,
+    'ValueDate':           fields.String,
 })
 
 deposit_input = ns.model('DepositInput', {
@@ -59,14 +65,12 @@ page_parser.add_argument('per_page', type=int, default=50, location='args')
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def _ref() -> str:
-    """Generate a unique reference number."""
     return 'TXN-' + str(uuid.uuid4()).upper()[:12]
 
 
 def _get_active_account(account_id: int) -> dict:
-    """Return account row or abort with 404/400."""
     row = db.query_one(
-        "SELECT AccountID, Balance, Currency, Status FROM Accounts WHERE AccountID = %s",
+        'SELECT AccountID, Balance, Currency, Status FROM Accounts WHERE AccountID = %s',
         (account_id,),
     )
     if not row:
@@ -74,6 +78,20 @@ def _get_active_account(account_id: int) -> dict:
     if row['Status'].lower() != 'active':
         abort(400, message=f'Account {account_id} is not active (status: {row["Status"]}).')
     return row
+
+
+def _insert_txn(account_id, type_id, amount, currency, balance_before, balance_after, description, ref):
+    return db.execute_returning(
+        """
+        INSERT INTO Transactions
+            (ReferenceNumber, AccountID, TransactionTypeID, Amount, Currency,
+             BalanceBefore, BalanceAfter, Description, Status, TransactionDate, ValueDate)
+        OUTPUT INSERTED.*
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Completed', GETDATE(), CAST(GETDATE() AS DATE))
+        """,
+        (ref, account_id, type_id, amount, currency,
+         balance_before, balance_after, description),
+    )
 
 
 # ── Resources ─────────────────────────────────────────────────────────────────
@@ -126,40 +144,27 @@ class Deposit(Resource):
     @ns.response(503, 'Database unavailable')
     def post(self):
         """Deposit funds into an account. [admin only]"""
-        p = ns.payload
+        p      = ns.payload
         amount = float(p['amount'])
         if amount <= 0:
             abort(400, message='Amount must be greater than zero.')
-
         try:
-            acct = _get_active_account(p['account_id'])
-
-            # Insert transaction record
-            ref = _ref()
-            row = db.execute_returning(
-                """
-                INSERT INTO Transactions
-                    (AccountID, TransactionType, Amount, Currency, Description, ReferenceNumber, Status)
-                OUTPUT INSERTED.*
-                VALUES (%s, 'credit', %s, %s, %s, %s, 'completed')
-                """,
-                (
-                    acct['AccountID'],
-                    amount,
-                    p.get('currency', acct['Currency']),
-                    p.get('description', 'Deposit'),
-                    ref,
-                ),
+            acct           = _get_active_account(p['account_id'])
+            balance_before = float(acct['Balance'])
+            balance_after  = balance_before + amount
+            ref            = _ref()
+            row = _insert_txn(
+                acct['AccountID'], 1, amount,
+                p.get('currency', acct['Currency']),
+                balance_before, balance_after,
+                p.get('description', 'Cash Deposit'), ref,
             )
-
-            # Update account balance
             db.execute(
                 'UPDATE Accounts SET Balance = Balance + %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
                 (amount, acct['AccountID']),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
-
         return serialize_row(row), 201
 
 
@@ -173,42 +178,29 @@ class Withdrawal(Resource):
     @ns.response(503, 'Database unavailable')
     def post(self):
         """Withdraw funds from an account. [admin only]"""
-        p = ns.payload
+        p      = ns.payload
         amount = float(p['amount'])
         if amount <= 0:
             abort(400, message='Amount must be greater than zero.')
-
         try:
-            acct = _get_active_account(p['account_id'])
-            if float(acct['Balance']) < amount:
-                abort(400, message=(
-                    f'Insufficient funds. Available: {acct["Balance"]}, Requested: {amount}'
-                ))
-
-            ref = _ref()
-            row = db.execute_returning(
-                """
-                INSERT INTO Transactions
-                    (AccountID, TransactionType, Amount, Currency, Description, ReferenceNumber, Status)
-                OUTPUT INSERTED.*
-                VALUES (%s, 'debit', %s, %s, %s, %s, 'completed')
-                """,
-                (
-                    acct['AccountID'],
-                    amount,
-                    p.get('currency', acct['Currency']),
-                    p.get('description', 'Withdrawal'),
-                    ref,
-                ),
+            acct           = _get_active_account(p['account_id'])
+            balance_before = float(acct['Balance'])
+            if balance_before < amount:
+                abort(400, message=f'Insufficient funds. Available: {balance_before}, Requested: {amount}')
+            balance_after = balance_before - amount
+            ref           = _ref()
+            row = _insert_txn(
+                acct['AccountID'], 2, amount,
+                p.get('currency', acct['Currency']),
+                balance_before, balance_after,
+                p.get('description', 'Cash Withdrawal'), ref,
             )
-
             db.execute(
                 'UPDATE Accounts SET Balance = Balance - %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
                 (amount, acct['AccountID']),
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
-
         return serialize_row(row), 201
 
 
@@ -222,35 +214,28 @@ class Transfer(Resource):
     @ns.response(503, 'Database unavailable')
     def post(self):
         """Transfer funds between two accounts. [admin only]"""
-        p = ns.payload
+        p      = ns.payload
         amount = float(p['amount'])
         if amount <= 0:
             abort(400, message='Amount must be greater than zero.')
         if p['from_account_id'] == p['to_account_id']:
             abort(400, message='Source and destination accounts must be different.')
-
         try:
-            from_acct = _get_active_account(p['from_account_id'])
-            to_acct   = _get_active_account(p['to_account_id'])
-
-            if float(from_acct['Balance']) < amount:
-                abort(400, message=(
-                    f'Insufficient funds. Available: {from_acct["Balance"]}, Requested: {amount}'
-                ))
-
+            from_acct      = _get_active_account(p['from_account_id'])
+            to_acct        = _get_active_account(p['to_account_id'])
+            from_before    = float(from_acct['Balance'])
+            to_before      = float(to_acct['Balance'])
+            if from_before < amount:
+                abort(400, message=f'Insufficient funds. Available: {from_before}, Requested: {amount}')
             currency = p.get('currency', from_acct['Currency'])
-            note     = p.get('description', 'Transfer')
+            note     = p.get('description', 'Internal Transfer')
             ref      = _ref()
 
             # Debit source
-            debit_row = db.execute_returning(
-                """
-                INSERT INTO Transactions
-                    (AccountID, TransactionType, Amount, Currency, Description, ReferenceNumber, Status)
-                OUTPUT INSERTED.*
-                VALUES (%s, 'debit', %s, %s, %s, %s, 'completed')
-                """,
-                (from_acct['AccountID'], amount, currency, f'{note} → Acct {to_acct["AccountID"]}', ref),
+            _insert_txn(
+                from_acct['AccountID'], 3, amount, currency,
+                from_before, from_before - amount,
+                f'{note} → Acct {to_acct["AccountID"]}', ref,
             )
             db.execute(
                 'UPDATE Accounts SET Balance = Balance - %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
@@ -258,27 +243,22 @@ class Transfer(Resource):
             )
 
             # Credit destination
-            db.execute_returning(
-                """
-                INSERT INTO Transactions
-                    (AccountID, TransactionType, Amount, Currency, Description, ReferenceNumber, Status)
-                OUTPUT INSERTED.*
-                VALUES (%s, 'credit', %s, %s, %s, %s, 'completed')
-                """,
-                (to_acct['AccountID'], amount, currency, f'{note} ← Acct {from_acct["AccountID"]}', ref),
+            _insert_txn(
+                to_acct['AccountID'], 3, amount, currency,
+                to_before, to_before + amount,
+                f'{note} ← Acct {from_acct["AccountID"]}', ref,
             )
             db.execute(
                 'UPDATE Accounts SET Balance = Balance + %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
                 (amount, to_acct['AccountID']),
             )
-
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
 
         return {
-            'message':        'Transfer completed successfully.',
-            'reference':      ref,
-            'amount':         amount,
+            'message':         'Transfer completed successfully.',
+            'reference':       ref,
+            'amount':          amount,
             'from_account_id': p['from_account_id'],
-            'to_account_id':  p['to_account_id'],
+            'to_account_id':   p['to_account_id'],
         }, 201
