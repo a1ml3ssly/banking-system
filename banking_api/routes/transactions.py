@@ -235,7 +235,7 @@ class Transfer(Resource):
             _insert_txn(
                 from_acct['AccountID'], 3, amount, currency,
                 from_before, from_before - amount,
-                f'{note} -> Acct {to_acct["AccountID"]}', ref,
+                f'{note} -> Acct {to_acct["AccountID"]}', ref + '-D',
             )
             db.execute(
                 'UPDATE Accounts SET Balance = Balance - %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
@@ -246,7 +246,7 @@ class Transfer(Resource):
             _insert_txn(
                 to_acct['AccountID'], 3, amount, currency,
                 to_before, to_before + amount,
-                f'{note} <- Acct {from_acct["AccountID"]}', ref,
+                f'{note} <- Acct {from_acct["AccountID"]}', ref + '-C',
             )
             db.execute(
                 'UPDATE Accounts SET Balance = Balance + %s, UpdatedAt = GETDATE() WHERE AccountID = %s',
