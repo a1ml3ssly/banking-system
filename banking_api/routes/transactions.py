@@ -71,7 +71,7 @@ def _get_active_account(account_id: int) -> dict:
     )
     if not row:
         abort(404, message=f'Account {account_id} not found.')
-    if row['Status'] != 'active':
+    if row['Status'].lower() != 'active':
         abort(400, message=f'Account {account_id} is not active (status: {row["Status"]}).')
     return row
 
