@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bug Hunt — Banking API (branch: main-errors)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f1117; color: #e2e8f0; padding: 40px 24px; }
+  h1 { font-size: 1.8rem; color: #f8f8f8; margin-bottom: 6px; }
+  .subtitle { color: #64748b; font-size: 0.95rem; margin-bottom: 36px; }
+  .branch-tag { display: inline-block; background: #1e293b; border: 1px solid #334155; color: #94a3b8;
+                font-size: 0.8rem; padding: 2px 10px; border-radius: 99px; margin-left: 10px; vertical-align: middle; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 18px; }
+  .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px 22px; position: relative; }
+  .card:hover { border-color: #4a5568; }
+  .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 9px; border-radius: 99px;
+           text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .logic   { background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed55; }
+  .auth    { background: #dc262622; color: #f87171; border: 1px solid #dc262655; }
+  .sql     { background: #d9770622; color: #fb923c; border: 1px solid #d9770655; }
+  .http    { background: #0284c722; color: #38bdf8; border: 1px solid #0284c755; }
+  .routing { background: #05966922; color: #34d399; border: 1px solid #05966955; }
+  .num { position: absolute; top: 18px; right: 18px; font-size: 1.6rem; font-weight: 800; color: #1e293b; }
+  .card h3 { font-size: 0.95rem; color: #f1f5f9; margin-bottom: 6px; }
+  .endpoint { font-family: 'Consolas', monospace; font-size: 0.82rem; color: #7dd3fc;
+              background: #0f172a; padding: 3px 8px; border-radius: 4px; display: inline-block; margin-bottom: 10px; }
+  .desc { font-size: 0.88rem; color: #94a3b8; line-height: 1.55; }
+  .desc code { font-family: 'Consolas', monospace; color: #fca5a5; background: #1e293b; padding: 1px 5px; border-radius: 3px; }
+  .file { margin-top: 10px; font-size: 0.75rem; color: #475569; font-family: 'Consolas', monospace; }
+  hr { border: none; border-top: 1px solid #1e293b; margin: 36px 0 28px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+</style>
+</head>
+<body>
+
+<h1>Bug Hunt <span class="branch-tag">branch: main-errors</span></h1>
+<p class="subtitle">19 intentional bugs planted across the Banking System API. Find them all.</p>
+
+<div class="legend">
+  <span class="badge logic">Logic</span>
+  <span class="badge auth">Auth / Roles</span>
+  <span class="badge sql">SQL / Data</span>
+  <span class="badge http">HTTP Response</span>
+  <span class="badge routing">Routing</span>
+</div>
+
+<div class="grid">
+
+  <!-- BUG 1 -->
+  <div class="card">
+    <span class="num">01</span>
+    <span class="badge logic">Logic</span>
+    <h3>GET client by ID returns the wrong client</h3>
+    <div class="endpoint">GET /api/v1/clients/{id}</div>
+    <p class="desc">
+      When <code>id = 1</code> the correct client is returned. For any other ID,
+      the API silently looks up <code>id - 1</code> instead, returning a different client's data.
+    </p>
+    <div class="file">routes/clients.py → ClientDetail.get()</div>
+  </div>
+
+  <!-- BUG 2 -->
+  <div class="card">
+    <span class="num">02</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Client accounts endpoint always returns accounts for client 1</h3>
+    <div class="endpoint">GET /api/v1/clients/{id}/accounts</div>
+    <p class="desc">
+      Regardless of which client ID is passed, the SQL query is hardcoded to
+      <code>ClientID = 1</code>. Every client appears to own the same accounts.
+    </p>
+    <div class="file">routes/clients.py → ClientAccounts.get()</div>
+  </div>
+
+  <!-- BUG 3 -->
+  <div class="card">
+    <span class="num">03</span>
+    <span class="badge logic">Logic</span>
+    <h3>Client summary FullName is reversed (LastName + FirstName)</h3>
+    <div class="endpoint">GET /api/v1/clients/{id}/summary</div>
+    <p class="desc">
+      The SQL concatenation is <code>LastName + ' ' + FirstName</code> instead of
+      <code>FirstName + ' ' + LastName</code>, so every full name comes back surname-first.
+    </p>
+    <div class="file">routes/clients.py → ClientSummary.get()</div>
+  </div>
+
+  <!-- BUG 4 -->
+  <div class="card">
+    <span class="num">04</span>
+    <span class="badge logic">Logic</span>
+    <h3>New client is stored with FirstName and LastName swapped</h3>
+    <div class="endpoint">POST /api/v1/clients/</div>
+    <p class="desc">
+      The INSERT passes <code>p['LastName']</code> into the <code>FirstName</code> column
+      and <code>p['FirstName']</code> into <code>LastName</code>. Names are silently flipped in the database.
+    </p>
+    <div class="file">routes/clients.py → ClientList.post()</div>
+  </div>
+
+  <!-- BUG 5 -->
+  <div class="card">
+    <span class="num">05</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Client search filter is completely ignored</h3>
+    <div class="endpoint">GET /api/v1/clients/?search=...</div>
+    <p class="desc">
+      The <code>search</code> query parameter is parsed but never used. The query always
+      returns all clients, so filtering by name or email has no effect.
+    </p>
+    <div class="file">routes/clients.py → ClientList.get()</div>
+  </div>
+
+  <!-- BUG 6 -->
+  <div class="card">
+    <span class="num">06</span>
+    <span class="badge auth">Auth / Roles</span>
+    <h3>Creating a bank account requires readonly role, not admin</h3>
+    <div class="endpoint">POST /api/v1/accounts/</div>
+    <p class="desc">
+      The decorator is <code>@require_auth(roles=['readonly'])</code>. Admin tokens
+      receive a 403, while readonly tokens — which should have no write access — can
+      create accounts.
+    </p>
+    <div class="file">routes/accounts.py → AccountList.post()</div>
+  </div>
+
+  <!-- BUG 7 -->
+  <div class="card">
+    <span class="num">07</span>
+    <span class="badge http">HTTP Response</span>
+    <h3>GET account by ID always returns 200 with empty body</h3>
+    <div class="endpoint">GET /api/v1/accounts/{id}</div>
+    <p class="desc">
+      The handler immediately returns <code>{}</code> without querying the database.
+      All IDs — including non-existent ones — return 200 with an empty object instead of
+      actual data or a 404.
+    </p>
+    <div class="file">routes/accounts.py → AccountDetail.get()</div>
+  </div>
+
+  <!-- BUG 8 -->
+  <div class="card">
+    <span class="num">08</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Account transactions always returns transactions for account 1</h3>
+    <div class="endpoint">GET /api/v1/accounts/{id}/transactions</div>
+    <p class="desc">
+      The SQL is hardcoded to <code>AccountID = 1</code>. Every account returns
+      the same transaction history regardless of the requested account ID.
+    </p>
+    <div class="file">routes/accounts.py → AccountTransactions.get()</div>
+  </div>
+
+  <!-- BUG 9 -->
+  <div class="card">
+    <span class="num">09</span>
+    <span class="badge logic">Logic</span>
+    <h3>Deposit subtracts from balance instead of adding</h3>
+    <div class="endpoint">POST /api/v1/transactions/deposit</div>
+    <p class="desc">
+      <code>balance_after</code> is calculated as <code>balance_before - amount</code>
+      instead of <code>balance_before + amount</code>. Every deposit reduces the account balance.
+    </p>
+    <div class="file">routes/transactions.py → Deposit.post()</div>
+  </div>
+
+  <!-- BUG 10 -->
+  <div class="card">
+    <span class="num">10</span>
+    <span class="badge logic">Logic</span>
+    <h3>Withdrawal allows overdraft — balance check is broken</h3>
+    <div class="endpoint">POST /api/v1/transactions/withdrawal</div>
+    <p class="desc">
+      The guard condition is <code>if balance_before &lt; 0</code> instead of
+      <code>if balance_before &lt; amount</code>. Accounts can be overdrawn to any negative
+      value without error.
+    </p>
+    <div class="file">routes/transactions.py → Withdrawal.post()</div>
+  </div>
+
+  <!-- BUG 11 -->
+  <div class="card">
+    <span class="num">11</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>GET transaction by ID always returns the oldest transaction</h3>
+    <div class="endpoint">GET /api/v1/transactions/{id}</div>
+    <p class="desc">
+      The query ignores <code>transaction_id</code> and instead runs
+      <code>SELECT TOP 1 * FROM Transactions ORDER BY TransactionID ASC</code>,
+      always returning the very first transaction ever created.
+    </p>
+    <div class="file">routes/transactions.py → TransactionDetail.get()</div>
+  </div>
+
+  <!-- BUG 12 -->
+  <div class="card">
+    <span class="num">12</span>
+    <span class="badge logic">Logic</span>
+    <h3>Transaction list is sorted oldest-first instead of newest-first</h3>
+    <div class="endpoint">GET /api/v1/transactions/</div>
+    <p class="desc">
+      The ORDER BY clause uses <code>ASC</code> instead of <code>DESC</code>,
+      so the most recent transactions appear at the end of the list, not the beginning.
+    </p>
+    <div class="file">routes/transactions.py → TransactionList.get()</div>
+  </div>
+
+  <!-- BUG 13 -->
+  <div class="card">
+    <span class="num">13</span>
+    <span class="badge routing">Routing</span>
+    <h3>Transfer endpoint URL is misspelled</h3>
+    <div class="endpoint">POST /api/v1/transactions/transfurer</div>
+    <p class="desc">
+      The route is registered as <code>/transfurer</code> instead of <code>/transfer</code>.
+      Calls to the correct URL return 404; the endpoint only responds on the misspelled path.
+    </p>
+    <div class="file">routes/transactions.py → Transfer class</div>
+  </div>
+
+  <!-- BUG 14 -->
+  <div class="card">
+    <span class="num">14</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>GET loan by ID looks up the wrong loan (id - 1)</h3>
+    <div class="endpoint">GET /api/v1/loans/{id}</div>
+    <p class="desc">
+      The query uses <code>LoanID = loan_id - 1</code>, so every request returns
+      the previous loan. Loan 5 returns loan 4's data; loan 1 returns nothing (404).
+    </p>
+    <div class="file">routes/loans.py → LoanDetail.get()</div>
+  </div>
+
+  <!-- BUG 15 -->
+  <div class="card">
+    <span class="num">15</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Loan payments return payments for loan_id + 1</h3>
+    <div class="endpoint">GET /api/v1/loans/{id}/payments</div>
+    <p class="desc">
+      The payment query uses <code>LoanID = loan_id + 1</code>, returning the next
+      loan's payments. The last loan in the system returns an empty list.
+    </p>
+    <div class="file">routes/loans.py → LoanPayments.get()</div>
+  </div>
+
+  <!-- BUG 16 -->
+  <div class="card">
+    <span class="num">16</span>
+    <span class="badge http">HTTP Response</span>
+    <h3>Create branch returns 200 instead of 201</h3>
+    <div class="endpoint">POST /api/v1/branches/</div>
+    <p class="desc">
+      The <code>@ns.marshal_with</code> decorator is configured with <code>code=200</code>
+      instead of <code>code=201</code>. A successful creation returns 200 OK instead of
+      the correct 201 Created.
+    </p>
+    <div class="file">routes/branches.py → BranchList.post()</div>
+  </div>
+
+  <!-- BUG 17 -->
+  <div class="card">
+    <span class="num">17</span>
+    <span class="badge auth">Auth / Roles</span>
+    <h3>GET branch by ID requires no authentication</h3>
+    <div class="endpoint">GET /api/v1/branches/{id}</div>
+    <p class="desc">
+      The <code>@require_auth()</code> decorator was removed from this endpoint.
+      Anyone — with or without a token — can retrieve branch details without authenticating.
+    </p>
+    <div class="file">routes/branches.py → BranchDetail.get()</div>
+  </div>
+
+  <!-- BUG 18 -->
+  <div class="card">
+    <span class="num">18</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Cards by client always returns cards for client 1</h3>
+    <div class="endpoint">GET /api/v1/cards/client/{id}</div>
+    <p class="desc">
+      The SQL join is hardcoded to <code>a.ClientID = 1</code>. All clients
+      appear to have the same cards — those belonging to client 1.
+    </p>
+    <div class="file">routes/cards.py → CardsByClient.get()</div>
+  </div>
+
+  <!-- BUG 19 -->
+  <div class="card">
+    <span class="num">19</span>
+    <span class="badge logic">Logic</span>
+    <h3>Exchange rate pair lookup swaps base and target currencies</h3>
+    <div class="endpoint">GET /api/v1/exchange-rates/{base}/{target}</div>
+    <p class="desc">
+      The query passes <code>(target, base)</code> instead of <code>(base, target)</code>.
+      Requesting USD → ILS actually returns the ILS → USD rate, giving the inverse exchange rate.
+    </p>
+    <div class="file">routes/exchange_rates.py → ExchangeRatePair.get()</div>
+  </div>
+
+  <!-- BUG 20 (bonus) -->
+  <div class="card">
+    <span class="num">20</span>
+    <span class="badge logic">Logic</span>
+    <h3>Loan application decision always approves, regardless of input</h3>
+    <div class="endpoint">POST /api/v1/loan-applications/{id}/decision</div>
+    <p class="desc">
+      The variable <code>decision</code> is hardcoded to <code>'approved'</code> before the
+      payload is read. Submitting <code>"decision": "rejected"</code> still marks the
+      application as approved.
+    </p>
+    <div class="file">routes/loan_applications.py → LoanApplicationDecision.post()</div>
+  </div>
+
+  <!-- BUG 21 (bonus) -->
+  <div class="card">
+    <span class="num">21</span>
+    <span class="badge sql">SQL / Data</span>
+    <h3>Loan application status filter is completely ignored</h3>
+    <div class="endpoint">GET /api/v1/loan-applications/?status=...</div>
+    <p class="desc">
+      The <code>status</code> query parameter is parsed but the conditional branch is
+      removed — all applications are always returned, making status filtering non-functional.
+    </p>
+    <div class="file">routes/loan_applications.py → LoanApplicationList.get()</div>
+  </div>
+
+  <!-- BUG 22 (bonus) -->
+  <div class="card">
+    <span class="num">22</span>
+    <span class="badge logic">Logic</span>
+    <h3>New loan application is always filed under client 1</h3>
+    <div class="endpoint">POST /api/v1/loan-applications/</div>
+    <p class="desc">
+      After validating the provided <code>ClientID</code>, the code overwrites it with
+      <code>p['ClientID'] = 1</code>. Every application is stored against client 1
+      regardless of which client was specified.
+    </p>
+    <div class="file">routes/loan_applications.py → LoanApplicationList.post()</div>
+  </div>
+
+</div>
+
+<hr>
+<p style="color:#475569;font-size:0.8rem;text-align:center;">
+  Banking System API &mdash; Bug Hunt Exercise &mdash; Branch: <code style="color:#64748b">main-errors</code> &mdash; 22 bugs total
+</p>
+
+</body>
+</html>
