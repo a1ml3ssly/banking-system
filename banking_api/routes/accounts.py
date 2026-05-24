@@ -90,13 +90,15 @@ class AccountList(Resource):
             if not db.query_one('SELECT BranchID FROM Branches WHERE BranchID = %s', (p['BranchID'],)):
                 abort(400, message=f"Branch {p['BranchID']} does not exist.")
 
-            # Resolve AccountTypeID from TypeCode or TypeName
+            # Resolve AccountTypeID from TypeCode, TypeName, or raw integer ID
             at = db.query_one(
-                'SELECT AccountTypeID FROM AccountTypes WHERE TypeCode = %s OR TypeName = %s',
-                (p['AccountType'], p['AccountType']),
+                'SELECT AccountTypeID FROM AccountTypes WHERE TypeCode = %s OR TypeName = %s OR CAST(AccountTypeID AS NVARCHAR) = %s',
+                (p['AccountType'], p['AccountType'], p['AccountType']),
             )
             if not at:
-                abort(400, message=f"Unknown account type '{p['AccountType']}'. Use a valid TypeCode or TypeName from AccountTypes.")
+                valid = db.query('SELECT TypeCode, TypeName FROM AccountTypes WHERE IsActive = 1')
+                opts = ', '.join(f"{r['TypeCode']}/{r['TypeName']}" for r in valid)
+                abort(400, message=f"Unknown account type '{p['AccountType']}'. Valid options: {opts}")
 
             # Generate an account number
             import random, string

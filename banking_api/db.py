@@ -74,5 +74,6 @@ def execute_returning(sql: str, params: tuple = ()) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(as_dict=True) as cur:
             cur.execute(sql, params)
+            row = cur.fetchone()  # fetch OUTPUT INSERTED.* before commit clears cursor
             conn.commit()
-            return cur.fetchone()
+            return row

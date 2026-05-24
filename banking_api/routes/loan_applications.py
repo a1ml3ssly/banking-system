@@ -110,7 +110,7 @@ class LoanApplicationList(Resource):
                 INSERT INTO LoanApplications
                     (ClientID, LoanType, RequestedAmount, RequestedTermMonths, Purpose, Status)
                 OUTPUT INSERTED.*
-                VALUES (%s, %s, %s, %s, %s, 'pending')
+                VALUES (%s, %s, %s, %s, %s, 'Submitted')
                 """,
                 (
                     p['ClientID'],
@@ -122,7 +122,7 @@ class LoanApplicationList(Resource):
             )
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
-        return serialize_row(row), 201
+        return serialize_row(row or {}), 201
 
 
 @ns.route('/<int:application_id>')
@@ -169,7 +169,7 @@ class LoanApplicationDecision(Resource):
             )
             if not app:
                 abort(404, message=f'Application {application_id} not found.')
-            if app['Status'] != 'pending':
+            if app['Status'] not in ('Submitted', 'UnderReview', 'pending'):
                 abort(400, message=f"Application is already '{app['Status']}' — cannot decide again.")
 
             row = db.execute_returning(
