@@ -16,15 +16,19 @@ ns = Namespace('loans', description='Loan record operations')
 
 # ── Swagger models ─────────────────────────────────────────────────────────────
 loan_model = ns.model('Loan', {
-    'LoanID':       fields.Integer(readonly=True),
-    'AccountID':    fields.Integer,
-    'LoanType':     fields.String,
-    'Principal':    fields.Float,
-    'InterestRate': fields.Float,
-    'TermMonths':   fields.Integer,
-    'Status':       fields.String(description='active | paid_off | defaulted | closed'),
-    'DisbursedAt':  fields.String,
-    'MaturityDate': fields.String,
+    'LoanID':              fields.Integer(readonly=True),
+    'ClientID':            fields.Integer,
+    'AccountID':           fields.Integer,
+    'LoanType':            fields.String,
+    'PrincipalAmount':     fields.Float,
+    'InterestRate':        fields.Float,
+    'TermMonths':          fields.Integer,
+    'MonthlyPayment':      fields.Float,
+    'OutstandingBalance':  fields.Float,
+    'Status':              fields.String(description='active | paid_off | defaulted | closed'),
+    'StartDate':           fields.String,
+    'EndDate':             fields.String,
+    'CreatedAt':           fields.String,
 })
 
 payment_model = ns.model('LoanPayment', {
@@ -59,11 +63,11 @@ class LoanList(Resource):
         try:
             if status:
                 rows = db.query(
-                    'SELECT * FROM Loans WHERE Status = %s ORDER BY DisbursedAt DESC',
+                    'SELECT * FROM Loans WHERE Status = %s ORDER BY StartDate DESC',
                     (status,),
                 )
             else:
-                rows = db.query('SELECT * FROM Loans ORDER BY DisbursedAt DESC')
+                rows = db.query('SELECT * FROM Loans ORDER BY StartDate DESC')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
 

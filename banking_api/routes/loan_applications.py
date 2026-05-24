@@ -19,23 +19,28 @@ ns = Namespace('loan-applications', description='Loan application lifecycle')
 
 # ── Swagger models ─────────────────────────────────────────────────────────────
 application_model = ns.model('LoanApplication', {
-    'ApplicationID':   fields.Integer(readonly=True),
-    'ClientID':        fields.Integer,
-    'LoanType':        fields.String,
-    'RequestedAmount': fields.Float,
-    'TermMonths':      fields.Integer,
-    'Purpose':         fields.String,
-    'Status':          fields.String(description='pending | approved | rejected | cancelled'),
-    'AppliedAt':       fields.String,
-    'DecisionAt':      fields.String,
-    'DecisionNote':    fields.String,
+    'ApplicationID':       fields.Integer(readonly=True),
+    'ClientID':            fields.Integer,
+    'LoanType':            fields.String,
+    'RequestedAmount':     fields.Float,
+    'RequestedTermMonths': fields.Integer,
+    'Purpose':             fields.String,
+    'Status':              fields.String(description='pending | approved | rejected | cancelled'),
+    'EligibilityScore':    fields.Float,
+    'ReviewedBy':          fields.Integer,
+    'ReviewedAt':          fields.String,
+    'RejectionReason':     fields.String,
+    'ApprovedAmount':      fields.Float,
+    'ApprovedRate':        fields.Float,
+    'ResultantLoanID':     fields.Integer,
+    'SubmittedAt':         fields.String,
 })
 
 application_input = ns.model('LoanApplicationInput', {
     'ClientID':        fields.Integer(required=True),
     'LoanType':        fields.String(required=True,  description='personal | mortgage | auto | business'),
     'RequestedAmount': fields.Float(required=True,   description='Amount requested'),
-    'TermMonths':      fields.Integer(required=True, description='Repayment term in months'),
+    'TermMonths':      fields.Integer(required=True, description='Repayment term in months (stored as RequestedTermMonths)'),
     'Purpose':         fields.String(required=False, description='Reason for the loan'),
 })
 
@@ -76,11 +81,11 @@ class LoanApplicationList(Resource):
         try:
             if status:
                 rows = db.query(
-                    'SELECT * FROM LoanApplications WHERE Status = %s ORDER BY AppliedAt DESC',
+                    'SELECT * FROM LoanApplications WHERE Status = %s ORDER BY SubmittedAt DESC',
                     (status,),
                 )
             else:
-                rows = db.query('SELECT * FROM LoanApplications ORDER BY AppliedAt DESC')
+                rows = db.query('SELECT * FROM LoanApplications ORDER BY SubmittedAt DESC')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
 
@@ -101,7 +106,7 @@ class LoanApplicationList(Resource):
             row = db.execute_returning(
                 """
                 INSERT INTO LoanApplications
-                    (ClientID, LoanType, RequestedAmount, TermMonths, Purpose, Status)
+                    (ClientID, LoanType, RequestedAmount, RequestedTermMonths, Purpose, Status)
                 OUTPUT INSERTED.*
                 VALUES (%s, %s, %s, %s, %s, 'pending')
                 """,
@@ -168,9 +173,9 @@ class LoanApplicationDecision(Resource):
             row = db.execute_returning(
                 """
                 UPDATE LoanApplications
-                SET    Status       = %s,
-                       DecisionAt   = GETDATE(),
-                       DecisionNote = %s
+                SET    Status          = %s,
+                       ReviewedAt      = GETDATE(),
+                       RejectionReason = %s
                 OUTPUT INSERTED.*
                 WHERE  ApplicationID = %s
                 """,

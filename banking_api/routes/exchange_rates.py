@@ -16,11 +16,11 @@ ns = Namespace('exchange-rates', description='Currency exchange rate lookups')
 # ── Swagger models ─────────────────────────────────────────────────────────────
 rate_model = ns.model('ExchangeRate', {
     'RateID':        fields.Integer(readonly=True),
-    'BaseCurrency':  fields.String,
-    'TargetCurrency': fields.String,
+    'FromCurrency':  fields.String,
+    'ToCurrency':    fields.String,
     'Rate':          fields.Float,
     'EffectiveDate': fields.String,
-    'UpdatedAt':     fields.String,
+    'CreatedAt':     fields.String,
 })
 
 
@@ -34,7 +34,7 @@ class ExchangeRateList(Resource):
     def get(self):
         """List all exchange rates, sorted by base currency."""
         try:
-            rows = db.query('SELECT * FROM ExchangeRates ORDER BY BaseCurrency, TargetCurrency')
+            rows = db.query('SELECT * FROM CurrencyRates ORDER BY FromCurrency, ToCurrency')
         except db.DatabaseUnavailableError as exc:
             abort(503, message=str(exc))
         return serialize_rows(rows)
@@ -54,9 +54,9 @@ class ExchangeRatePair(Resource):
         try:
             row = db.query_one(
                 """
-                SELECT * FROM ExchangeRates
-                WHERE BaseCurrency  = %s
-                  AND TargetCurrency = %s
+                SELECT * FROM CurrencyRates
+                WHERE FromCurrency = %s
+                  AND ToCurrency   = %s
                 ORDER BY EffectiveDate DESC
                 """,
                 (base.upper(), target.upper()),

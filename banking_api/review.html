@@ -128,6 +128,7 @@
     <a href="#ep-rates">Exchange Rates</a>
 
     <div class="section-label">Reference</div>
+    <a href="#db-connection">Database Connection</a>
     <a href="#db-tables">Database Tables</a>
     <a href="#eligibility">Eligibility Engine</a>
   </nav>
@@ -154,7 +155,7 @@
     <p>This document describes the REST API for the banking system. The API is served by a <strong>Flask / Flask-RESTX</strong> application running behind a <strong>Tyk API Gateway</strong>.</p>
     <table>
       <tr><th>Item</th><th>Value</th></tr>
-      <tr><td>Gateway URL</td><td><code>http://&lt;host&gt;:8080</code></td></tr>
+      <tr><td>Gateway URL</td><td><code>http://172.19.19.114:8080</code></td></tr>
       <tr><td>API prefix</td><td><code>/banking/api/v1</code></td></tr>
       <tr><td>Swagger UI</td><td><code>/docs</code></td></tr>
       <tr><td>This document</td><td><code>/review</code></td></tr>
@@ -186,6 +187,9 @@ Content-Type: application/json
     <h3>Step 2 — Use the token</h3>
     <pre>GET /banking/api/v1/clients/
 Authorization: Bearer eyJ...</pre>
+    <div class="info-box">All cURL examples below use <code>$TOKEN</code> to represent the <code>access_token</code> value.<br>
+    <strong>Bash / Git Bash:</strong> <code>export TOKEN="eyJ..."</code><br>
+    <strong>PowerShell:</strong> <code>$TOKEN="eyJ..."</code></div>
 
     <h3>Roles</h3>
     <table>
@@ -197,7 +201,7 @@ Authorization: Bearer eyJ...</pre>
     <div class="warn-box">Tokens expire after <strong>1 hour</strong>. Re-authenticate when you receive a 401 with "Token has expired".</div>
 
     <h3>Tyk Gateway</h3>
-    <p>Tyk sits in front of Flask on port <code>8080</code>. Flask itself listens on port <code>5000</code> but is not directly exposed. The paths <code>/review</code> and <code>/docs</code> are whitelisted in Tyk and bypass authentication at the gateway layer.</p>
+    <p>Tyk sits in front of Flask on port <code>8080</code>. Flask itself listens on port <code>5000</code> but is not directly exposed. The paths <code>/review</code> and <code>/doc</code> are whitelisted in Tyk and bypass authentication at the gateway layer.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════════ ERRORS -->
@@ -219,7 +223,7 @@ Authorization: Bearer eyJ...</pre>
     <h2>Pagination</h2>
     <p>Paginated endpoints accept <code>?page=1&amp;per_page=20</code> query parameters. The response envelope is:</p>
     <pre>{
-  "items":      [...],
+  "data":       [...],
   "page":       1,
   "per_page":   20,
   "total":      142,
@@ -267,6 +271,21 @@ Authorization: Bearer eyJ...</pre>
         <span class="status s200">200 OK</span>
         <span class="status s401">401 Invalid credentials</span>
         <span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre># Admin
+curl -s -X POST http://172.19.19.114:8080/banking/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"bk_live_5f0938799ce02f33b60bbba948442eef","api_secret":"bk_secret_c8b187e3422943bebf436ba50ee802839737c4e0b00ce912"}'
+
+# Analytics (readonly)
+curl -s -X POST http://172.19.19.114:8080/banking/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"bk_live_cd6d1a24af84cf119bdbdf7eb9d2b2c1","api_secret":"bk_secret_57f786121a4f3b374fe003232028ded60bcedcf543cff3be"}'
+
+# Audit Tool (readonly)
+curl -s -X POST http://172.19.19.114:8080/banking/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"bk_live_566786a75c487b9cbaef16e7a202cb97","api_secret":"bk_secret_06f312e2095cba19c4f9d97a9354e71b9beeabe7ee768072"}'</pre>
       </div>
     </div>
   </div>
@@ -287,6 +306,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all branches ordered by name. No pagination.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/branches/ \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -310,6 +332,11 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Validation error</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/branches/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"BranchName":"Tel Aviv Main","Address":"1 Rothschild Blvd","City":"Tel Aviv","Country":"Israel","Phone":"03-1234567"}'</pre>
       </div>
     </div>
 
@@ -324,6 +351,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns one branch by its integer ID.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/branches/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -350,6 +380,13 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/clients/?page=1&per_page=20" \
+  -H "Authorization: Bearer $TOKEN"
+
+# With search
+curl -s "http://172.19.19.114:8080/banking/api/v1/clients/?search=cohen" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -375,6 +412,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="info-box">Duplicate email returns <strong>400</strong>.</div>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Duplicate email / validation</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/clients/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"FirstName":"Yossi","LastName":"Cohen","Email":"yossi@example.com","Phone":"050-1234567","DateOfBirth":"1990-05-15","ClientType":"individual"}'</pre>
       </div>
     </div>
 
@@ -388,6 +430,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/clients/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -402,6 +447,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Queries <code>Accounts WHERE ClientID = ?</code> ordered by <code>OpenedAt DESC</code>.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Client not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/clients/1/accounts \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -426,6 +474,9 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Client not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/clients/1/summary \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -446,6 +497,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all accounts ordered by <code>OpenedAt DESC</code>. Supports <code>page</code> / <code>per_page</code>.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/accounts/?page=1&per_page=20" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -468,6 +522,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="info-box">Account number is auto-generated as <code>ACC</code> + 10 random digits. Initial balance is always 0.</div>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Client/branch not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/accounts/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ClientID":1,"BranchID":1,"AccountType":"checking","Currency":"ILS"}'</pre>
       </div>
     </div>
 
@@ -481,6 +540,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/accounts/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -495,6 +557,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns transactions for the account ordered by <code>TransactionDate DESC</code>. Default 50 per page, max 200.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Account not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/accounts/1/transactions?page=1&per_page=50" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -516,6 +581,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all transactions ordered by <code>TransactionDate DESC</code>. Default 50 per page, max 200.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/transactions/?page=1&per_page=50" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -529,6 +597,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/transactions/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -551,6 +622,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="info-box">Inserts a <code>credit</code> transaction record and increments <code>Accounts.Balance</code>. Reference number auto-generated as <code>TXN-XXXXXXXXXXXX</code>.</div>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Invalid account / amount</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/transactions/deposit \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"account_id":1,"amount":1000.00,"description":"Initial deposit"}'</pre>
       </div>
     </div>
 
@@ -573,6 +649,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="info-box">Inserts a <code>debit</code> transaction record and decrements <code>Accounts.Balance</code>. Returns 400 if balance is insufficient.</div>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Insufficient funds / invalid account</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/transactions/withdrawal \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"account_id":1,"amount":250.00,"description":"ATM withdrawal"}'</pre>
       </div>
     </div>
 
@@ -598,6 +679,11 @@ Authorization: Bearer eyJ...</pre>
         <pre>{ "message": "Transfer completed successfully.", "reference": "TXN-...", "amount": 500.0, "from_account_id": 1, "to_account_id": 2 }</pre>
         <span class="label">Status codes</span>
         <span class="status s201">201 Success</span><span class="status s400">400 Insufficient funds / same account / invalid</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/transactions/transfer \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"from_account_id":1,"to_account_id":2,"amount":500.00,"description":"Rent payment"}'</pre>
       </div>
     </div>
   </div>
@@ -624,6 +710,9 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/loans/?status=active" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -637,6 +726,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/loans/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -651,6 +743,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all records from <code>LoanPayments</code> for the given loan, ordered by <code>PaidAt DESC</code>.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Loan not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/loans/1/payments \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -676,6 +771,9 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/loan-applications/?status=pending" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -699,6 +797,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="info-box">Application is created with status <code>pending</code>. Use the <code>/decision</code> endpoint to approve or reject.</div>
         <span class="label">Status codes</span>
         <span class="status s201">201 Created</span><span class="status s400">400 Client not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/loan-applications/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ClientID":1,"LoanType":"personal","RequestedAmount":50000,"TermMonths":36,"Purpose":"Home renovation"}'</pre>
       </div>
     </div>
 
@@ -712,6 +815,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/loan-applications/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -732,6 +838,11 @@ Authorization: Bearer eyJ...</pre>
         <div class="warn-box">Can only be called on applications with status <code>pending</code>. Already-decided applications return <strong>400</strong>.</div>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s400">400 Already decided / invalid decision</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s -X POST http://172.19.19.114:8080/banking/api/v1/loan-applications/1/decision \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"decision":"approved","decision_note":"All criteria met"}'</pre>
       </div>
     </div>
 
@@ -756,6 +867,9 @@ Authorization: Bearer eyJ...</pre>
         </table>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Application or financial profile not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/loan-applications/1/eligibility \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -777,6 +891,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all cards ordered by <code>IssuedAt DESC</code>. Default 20 per page, max 100.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s "http://172.19.19.114:8080/banking/api/v1/cards/?page=1&per_page=20" \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -790,6 +907,9 @@ Authorization: Bearer eyJ...</pre>
       <div class="endpoint-body">
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/cards/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -804,6 +924,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Queries <code>Cards WHERE AccountID = ?</code>. Verifies the account exists first.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Account not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/cards/account/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -818,6 +941,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Joins <code>Cards → Accounts</code> and filters by <code>Accounts.ClientID</code>. Returns all cards the client holds regardless of which account they belong to.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Client not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/cards/client/1 \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
   </div>
@@ -838,6 +964,9 @@ Authorization: Bearer eyJ...</pre>
         <p>Returns all rows from <code>ExchangeRates</code> ordered by base then target currency.</p>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/exchange-rates/ \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
 
@@ -853,8 +982,57 @@ Authorization: Bearer eyJ...</pre>
         <pre>GET /banking/api/v1/exchange-rates/ILS/USD</pre>
         <span class="label">Status codes</span>
         <span class="status s200">200 OK</span><span class="status s404">404 Pair not found</span><span class="status s503">503 DB unavailable</span>
+        <span class="label">cURL</span>
+        <pre>curl -s http://172.19.19.114:8080/banking/api/v1/exchange-rates/ILS/USD \
+  -H "Authorization: Bearer $TOKEN"</pre>
       </div>
     </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ DB CONNECTION -->
+  <div class="section" id="db-connection">
+    <h2>Database Connection</h2>
+    <table>
+      <tr><th>Property</th><th>Value</th></tr>
+      <tr><td>Host</td><td><code>172.19.19.114</code></td></tr>
+      <tr><td>Port</td><td><code>1433</code></td></tr>
+      <tr><td>Database</td><td><code>BankingDB</code></td></tr>
+      <tr><td>User</td><td><code>sa</code></td></tr>
+      <tr><td>Password</td><td><code>Banking@NUC2024!</code></td></tr>
+    </table>
+
+    <h3>SSMS Connection String</h3>
+    <pre>Data Source=172.19.19.114,1433;Persist Security Info=True;User ID=sa;Password=Banking@NUC2024!;Pooling=False;MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Application Name="SQL Server Management Studio";Command Timeout=0</pre>
+
+    <h3>SSMS Manual Login</h3>
+    <table>
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>Server type</td><td>Database Engine</td></tr>
+      <tr><td>Server name</td><td><code>172.19.19.114,1433</code></td></tr>
+      <tr><td>Authentication</td><td>SQL Server Authentication</td></tr>
+      <tr><td>Login</td><td><code>sa</code></td></tr>
+      <tr><td>Password</td><td><code>Banking@NUC2024!</code></td></tr>
+    </table>
+
+    <h3>Python / pymssql</h3>
+    <pre>import pymssql
+
+conn = pymssql.connect(
+    server='172.19.19.114',
+    port=1433,
+    user='sa',
+    password='Banking@NUC2024!',
+    database='BankingDB',
+    charset='UTF-8',
+)</pre>
+
+    <h3>.env Configuration</h3>
+    <pre>DB_PROFILE=office
+DB_HOST_OFFICE=172.19.19.114
+DB_PORT=1433
+DB_USER=sa
+DB_PASSWORD=Banking@NUC2024!
+DB_NAME=BankingDB</pre>
   </div>
 
   <!-- ══════════════════════════════════════════════════════ DB TABLES -->
