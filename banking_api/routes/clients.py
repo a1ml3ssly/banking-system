@@ -214,7 +214,7 @@ class ClientSummary(Resource):
                 (client_id,),
             )
             tickets = db.query_one(
-                "SELECT COUNT(*) AS OpenTickets FROM SupportTickets "
+                "SELECT COUNT(*) AS OpenTickets FROM ServiceRequests "
                 "WHERE ClientID = %s AND Status = 'open'",
                 (client_id,),
             )

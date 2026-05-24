@@ -32,11 +32,17 @@ loan_model = ns.model('Loan', {
 })
 
 payment_model = ns.model('LoanPayment', {
-    'PaymentID':    fields.Integer,
-    'LoanID':       fields.Integer,
-    'Amount':       fields.Float,
-    'PaidAt':       fields.String,
-    'Status':       fields.String,
+    'PaymentID':     fields.Integer,
+    'LoanID':        fields.Integer,
+    'TransactionID': fields.Integer,
+    'DueDate':       fields.String,
+    'PaidDate':      fields.String,
+    'AmountDue':     fields.Float,
+    'AmountPaid':    fields.Float,
+    'Principal':     fields.Float,
+    'Interest':      fields.Float,
+    'Penalty':       fields.Float,
+    'Status':        fields.String,
 })
 
 page_parser = reqparse.RequestParser()
@@ -108,7 +114,7 @@ class LoanPayments(Resource):
             if not loan:
                 abort(404, message=f'Loan {loan_id} not found.')
             rows = db.query(
-                'SELECT * FROM LoanPayments WHERE LoanID = %s ORDER BY PaidAt DESC',
+                'SELECT * FROM LoanPayments WHERE LoanID = %s ORDER BY DueDate DESC',
                 (loan_id,),
             )
         except db.DatabaseUnavailableError as exc:
